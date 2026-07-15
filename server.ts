@@ -167,98 +167,90 @@ function parseVPNGateCSV(csvText: string): any[] {
   return parsedServers;
 }
 
-// Function to parse HTML from VPNGate using cheerio
+// Function to parse HTML from VPNGate using cheerio (highly robust and language-independent)
 function parseVPNGateHTML(htmlText: string): any[] {
   const $ = cheerio.load(htmlText);
   const parsedServers: any[] = [];
 
-  // Find all tables
-  const tables = $("table");
+  // Find the server list table.
+  // We search for a table containing rows with IP address patterns and vpngate hostname patterns.
   let targetTable: cheerio.Cheerio<any> | null = null;
+  const tables = $("table");
 
   tables.each((_, table) => {
-    const text = $(table).text();
-    if (text.includes("SSL-VPN") && text.includes("IP Address") && text.includes("Ping")) {
-      targetTable = $(table);
-      return false; // break loop
+    const tableHtml = $(table).html() || "";
+    // A valid VPNGate table will have many links containing .vpngate.net or IP addresses
+    if (tableHtml.includes(".vpngate.net") && (tableHtml.includes("vg") || tableHtml.includes("Ping"))) {
+      const trCount = $(table).find("tr").length;
+      if (trCount > 15) {
+        targetTable = $(table);
+        return false; // found it!
+      }
     }
   });
 
   if (!targetTable) {
-    // Fallback: search for any table that has headers containing DDNS and SSL-VPN or OpenVPN
+    // Fallback: look for table with headings in text
     tables.each((_, table) => {
       const text = $(table).text();
-      if (text.includes("DDNS") && text.includes("SSL-VPN")) {
-        targetTable = $(table);
-        return false;
+      if (text.includes("SSL-VPN") || text.includes("OpenVPN") || text.includes("L2TP")) {
+        const trCount = $(table).find("tr").length;
+        if (trCount > 15) {
+          targetTable = $(table);
+          return false;
+        }
       }
     });
   }
 
   if (!targetTable) {
-    console.warn("[VpnG Scraper] Could not find table by text headers. Scanning for largest tables...");
-    tables.each((_, table) => {
-      const rows = $(table).find("tr");
-      if (rows.length > 30) {
-        targetTable = $(table);
-        return false;
-      }
-    });
-  }
-
-  if (!targetTable) {
-    console.warn("[VpnG Scraper] No suitable tables found on the page.");
+    console.warn("[VpnG Scraper] No suitable table found on the page.");
     return [];
   }
 
   const rows = targetTable.find("tr");
-  console.log(`[VpnG Scraper] Scanned table row count: ${rows.length}`);
+  console.log(`[VpnG Scraper] Found server table with ${rows.length} rows`);
 
   rows.each((index, row) => {
     const cols = $(row).find("td");
     
-    // Header rows usually have <th> or empty or match labels. Skip row if it does not contain details.
+    // VPNGate tables have 9-10 columns. Skip row if too few columns.
     if (cols.length < 8) return;
 
-    const rowText = $(row).text();
-    if (!rowText.includes("ms") && !rowText.includes("sessions")) return; // Skip if no telemetry/session metadata
-    if (!/SSL-VPN|OpenVPN|L2TP|SSTP/i.test(rowText)) return; // Skip if no protocols supported
+    // Check if this row actually contains an IP address in hostCol (usually col index 1)
+    const hostText = cols.eq(1).text().replace(/\s+/g, " ");
+    const ipMatch = hostText.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+    if (!ipMatch) return; // Skip row if no IP address found (handles headers, ads, blank rows)
+
+    const ipAddress = ipMatch[1];
+    if (ipAddress === "0.0.0.0") return;
 
     const countryCol = cols.eq(0);
-    const hostCol = cols.eq(1);
     const sessionsCol = cols.eq(2);
     const throughputCol = cols.eq(3);
-    const sslCol = cols.eq(4);
-
-    const sslText = sslCol.text();
+    const col4Text = cols.eq(4).text(); // SSL-VPN
+    const col5Text = cols.eq(5) ? cols.eq(5).text() : ""; // L2TP
+    const col6Text = cols.eq(6) ? cols.eq(6).text() : ""; // OpenVPN
+    const col7Text = cols.eq(7) ? cols.eq(7).text() : ""; // SSTP
 
     // Country info
-    let countryLong = countryCol.text().trim();
-    countryLong = countryLong.split(/\r?\n/)[0].trim();
-    if (!countryLong) {
-      countryLong = "Unknown Country";
-    }
+    let countryLong = countryCol.text().trim().split(/\r?\n/)[0].trim();
+    if (!countryLong) countryLong = "Unknown Country";
 
+    // Extract Flag code
     const flagImg = countryCol.find("img").first();
     let countryShort = "UN";
     if (flagImg && flagImg.attr("src")) {
       const src = flagImg.attr("src") || "";
-      const flagMatch = src.match(/\/flags\/([A-Za-z]+)\./) || src.match(/([A-Za-z]+)\.gif/);
+      const flagMatch = src.match(/\/flags\/([A-Za-z]+)\./i) || src.match(/([A-Za-z]+)\.gif/i);
       if (flagMatch) {
         countryShort = flagMatch[1].toUpperCase();
       }
     }
 
-    // Hostname and IP address
-    const hostText = hostCol.text().replace(/\s+/g, " ");
-    const ipMatch = hostText.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-    const ipAddress = ipMatch ? ipMatch[1] : "";
-    
-    if (!ipAddress || ipAddress === "0.0.0.0") return;
-
     // Extract HostName
     let hostName = "unknown";
-    const hostWords = hostText.split(/\s+|\(|\)/);
+    const hostWords = hostText.split(/[\s()]+/);
     for (const w of hostWords) {
       if (w.includes(".vpngate.net") || w.includes(".net") || w.includes(".jp")) {
         hostName = w;
@@ -271,11 +263,21 @@ function parseVPNGateHTML(htmlText: string): any[] {
 
     // Ping & Sessions
     const qualityText = sessionsCol.text().replace(/\s+/g, " ");
-    const pingMatch = qualityText.match(/Ping:\s*(\d+)\s*ms/i) || qualityText.match(/(\d+)\s*ms/i);
+    const pingMatch = qualityText.match(/(\d+)\s*ms/i);
     const ping = pingMatch ? parseInt(pingMatch[1]) : 120;
 
-    const sessionsMatch = qualityText.match(/(\d+)\s*sessions/i) || qualityText.match(/sessions:\s*(\d+)/i);
-    const sessions = sessionsMatch ? parseInt(sessionsMatch[1]) : 0;
+    // Extract sessions (number preceding sessions, or first sequence of digits if text is non-english)
+    let sessions = 0;
+    const sessionsMatch = qualityText.match(/(\d+)\s*sessions/i);
+    if (sessionsMatch) {
+      sessions = parseInt(sessionsMatch[1]);
+    } else {
+      // Fallback: search for first number in text which is NOT the ping
+      const numbers = qualityText.match(/\d+/g);
+      if (numbers && numbers.length > 0) {
+        sessions = parseInt(numbers[0]);
+      }
+    }
 
     // Throughput
     const speedText = throughputCol.text().replace(/\s+/g, " ");
@@ -289,11 +291,7 @@ function parseVPNGateHTML(htmlText: string): any[] {
       else speedMbps = value;
     }
 
-    const col4Text = cols.eq(4).text();
-    const col5Text = cols.eq(5) ? cols.eq(5).text() : "";
-    const col6Text = cols.eq(6) ? cols.eq(6).text() : "";
-    const col7Text = cols.eq(7) ? cols.eq(7).text() : "";
-
+    // Protocol check
     const hasSoftEther = /TCP|UDP|SSL-VPN/i.test(col4Text);
     const hasL2TP = /L2TP|IPSec|Supported/i.test(col5Text) && !/Not Supported|Disabled/i.test(col5Text);
     const hasOpenVpn = /OpenVPN|Supported/i.test(col6Text) && !/Not Supported|Disabled/i.test(col6Text);
@@ -317,7 +315,7 @@ function parseVPNGateHTML(htmlText: string): any[] {
       CountryShort: countryShort,
       NumVpnConnections: sessions,
       Operator: "VPNGate Contributor",
-      Message: `Dynamic mirror server. Supports: ${hasSoftEther ? 'SoftEther ' : ''}${hasOpenVpn ? 'OpenVPN ' : ''}${hasL2TP ? 'L2TP/IPSec ' : ''}${hasSSTP ? 'MS-SSTP' : ''}`,
+      Message: `Dynamic server. Supports: ${hasSoftEther ? 'SoftEther ' : ''}${hasOpenVpn ? 'OpenVPN ' : ''}${hasL2TP ? 'L2TP/IPSec ' : ''}${hasSSTP ? 'MS-SSTP' : ''}`,
       OpenVPN_ConfigData_Base64: "",
       L2TP_IPsec: hasL2TP ? "1" : "0",
       "MS-SSTP": hasSSTP ? "1" : "0",
@@ -390,37 +388,46 @@ async function fetchFromVPNGateHTMLWithBackups(): Promise<any[]> {
   return [];
 }
 
-async function fetchFromVPNGateWithBackups(): Promise<{ servers: any[]; source: string }> {
-  let csvServers: any[] = [];
-  let sourceOfCsv = "none";
-
-  // 1. Fetch CSV API
+async function fetchCSVFirstSuccessful(): Promise<{ servers: any[]; url: string }> {
   for (const url of VPNGATE_URLS) {
     try {
-      console.log(`[VpnG Backend] Attempting to fetch CSV from: ${url}`);
+      console.log(`[VpnG Backend] Fetching CSV from: ${url}`);
       const res = await fetchWithTimeout(url, 4000);
       if (res.ok) {
         const text = await res.text();
         const parsed = parseVPNGateCSV(text);
         if (parsed.length > 0) {
-          console.log(`[VpnG Backend] Successfully fetched and parsed ${parsed.length} CSV servers from ${url}`);
-          csvServers = parsed;
-          sourceOfCsv = url;
-          break;
+          return { servers: parsed, url };
         }
       }
     } catch (e: any) {
-      console.warn(`[VpnG Backend] Failed fetching CSV from ${url}: ${e.message}`);
+      console.warn(`[VpnG Backend] CSV failed for ${url}: ${e.message}`);
     }
   }
+  return { servers: [], url: "none" };
+}
 
-  // 2. Fetch HTML web directory
-  let htmlServers: any[] = [];
+async function fetchHTMLFirstSuccessful(): Promise<any[]> {
   try {
-    htmlServers = await fetchFromVPNGateHTMLWithBackups();
+    return await fetchFromVPNGateHTMLWithBackups();
   } catch (e: any) {
-    console.error(`[VpnG Backend] HTML scraping failed, will rely solely on CSV. Error: ${e.message}`);
+    console.error(`[VpnG Backend] HTML scrape failed: ${e.message}`);
+    return [];
   }
+}
+
+async function fetchFromVPNGateWithBackups(): Promise<{ servers: any[]; source: string }> {
+  console.log("[VpnG Backend] Triggering CSV API and HTML Directory fetchers in parallel...");
+  
+  const [csvResult, htmlServers] = await Promise.all([
+    fetchCSVFirstSuccessful(),
+    fetchHTMLFirstSuccessful()
+  ]);
+
+  const csvServers = csvResult.servers;
+  const sourceOfCsv = csvResult.url;
+
+  console.log(`[VpnG Backend] Parallel fetches finished. CSV Count: ${csvServers.length}, HTML Count: ${htmlServers.length}`);
 
   // 3. Merge them to get the absolute maximum servers!
   const mergedMap = new Map<string, any>();
@@ -437,9 +444,14 @@ async function fetchFromVPNGateWithBackups(): Promise<{ servers: any[]; source: 
       const existing = mergedMap.get(s.IP);
       mergedMap.set(s.IP, {
         ...existing,
-        L2TP_IPsec: existing.L2TP_IPsec === "1" ? "1" : s.L2TP_IPsec,
-        "MS-SSTP": existing["MS-SSTP"] === "1" ? "1" : s["MS-SSTP"],
-        OpenVPN: existing.OpenVPN === "1" ? "1" : s.OpenVPN,
+        // Retain maximum completeness and best telemetry stats
+        Score: Math.max(existing.Score, s.Score),
+        Ping: Math.min(existing.Ping, s.Ping),
+        Speed: Math.max(existing.Speed, s.Speed),
+        NumVpnConnections: Math.max(existing.NumVpnConnections, s.NumVpnConnections),
+        L2TP_IPsec: existing.L2TP_IPsec === "1" || s.L2TP_IPsec === "1" ? "1" : "0",
+        "MS-SSTP": existing["MS-SSTP"] === "1" || s["MS-SSTP"] === "1" ? "1" : "0",
+        OpenVPN: existing.OpenVPN === "1" || s.OpenVPN === "1" ? "1" : "0",
       });
     } else {
       // Add server
@@ -567,6 +579,16 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  // Trigger background fetch on startup to populate cache instantly!
+  console.log("[VpnG Server] Triggering initial background fetch on startup...");
+  fetchFromVPNGateWithBackups().then(({ servers, source }) => {
+    cachedServers = servers;
+    lastUpdatedTime = new Date().toISOString();
+    console.log(`[VpnG Server] Initial fetch completed successfully! Populated ${cachedServers.length} servers from ${source}`);
+  }).catch((err) => {
+    console.error(`[VpnG Server] Initial startup fetch failed: ${err.message}. Using fallback servers.`);
+  });
 
   const PORT = 3000;
   app.listen(PORT, "0.0.0.0", () => {

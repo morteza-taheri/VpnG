@@ -8,7 +8,7 @@ import { INITIAL_PROFILES, INITIAL_APP_FILTERS } from "./data";
 import { Dashboard } from "./components/Dashboard";
 import { ServerList } from "./components/ServerList";
 import { ServerDetails } from "./components/ServerDetails";
-import { ProtocolSelector } from "./components/ProtocolSelector";
+import { ProtocolSelector, SelectorProtocol } from "./components/ProtocolSelector";
 import { Profiles } from "./components/Profiles";
 import { Settings } from "./components/Settings";
 import { SpeedTestPanel } from "./components/SpeedTestPanel";
@@ -82,7 +82,17 @@ export default function App() {
     return (localStorage.getItem("vpng_language") as "fa" | "en") || "fa";
   });
 
+  // Default connection protocol selection state
+  const [defaultProtocol, setDefaultProtocol] = useState<SelectorProtocol | "SMART_CONNECT">(() => {
+    return (localStorage.getItem("vpng_default_protocol") as SelectorProtocol | "SMART_CONNECT") || "SOFETHER_TCP";
+  });
+
   const trafficIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Save default protocol to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("vpng_default_protocol", defaultProtocol);
+  }, [defaultProtocol]);
 
   // Save language to localStorage whenever it changes
   useEffect(() => {
@@ -314,7 +324,7 @@ export default function App() {
     setShowProtocolSelector(true);
   };
 
-  const handleSelectProtocol = (protocolType: "SoftEther" | "OpenVPN_TCP" | "OpenVPN_UDP" | "SSTP") => {
+  const handleSelectProtocol = (protocolType: SelectorProtocol) => {
     if (!serverForProtocolSelector) return;
     const server = serverForProtocolSelector;
 
@@ -324,21 +334,27 @@ export default function App() {
 
     // Map selection to VpnProfile details
     let protocolName: "SoftEther" | "L2TP" | "OpenVPN" | "SSTP" = "SoftEther";
-    let port = 1381;
+    let port = 443;
     let name = `Free VPNGate (${server.CountryLong})`;
 
-    if (protocolType === "SoftEther") {
+    if (protocolType === "SOFETHER_TCP") {
       protocolName = "SoftEther";
-      port = 1381;
-    } else if (protocolType === "OpenVPN_TCP") {
+      port = 443;
+    } else if (protocolType === "SOFETHER_UDP") {
+      protocolName = "SoftEther";
+      port = 1194;
+    } else if (protocolType === "OPENVPN_TCP") {
       protocolName = "OpenVPN";
-      port = 1381;
-    } else if (protocolType === "OpenVPN_UDP") {
+      port = 443;
+    } else if (protocolType === "OPENVPN_UDP") {
       protocolName = "OpenVPN";
-      port = 1205;
+      port = 1194;
     } else if (protocolType === "SSTP") {
       protocolName = "SSTP";
-      port = 1381;
+      port = 443;
+    } else if (protocolType === "L2TP") {
+      protocolName = "L2TP";
+      port = 1701;
     }
 
     // Set active server
@@ -476,6 +492,18 @@ export default function App() {
 
   const handleToggleTheme = () => {
     setTheme(prev => prev === "dark" ? "light" : "dark");
+  };
+
+  const handleClearDatabase = async () => {
+    setServers([]);
+    setLastUpdated("");
+    localStorage.removeItem("vpng_servers_cache");
+    localStorage.removeItem("vpng_servers_last_update");
+    try {
+      await fetch("/api/servers/clear", { method: "POST" });
+    } catch (err) {
+      console.warn("Could not notify backend to clear database, done client-side.", err);
+    }
   };
 
   const t = translations[language];
@@ -664,6 +692,9 @@ export default function App() {
                 onResetPermission={handleResetPermission}
                 language={language}
                 onChangeLanguage={(lang) => setLanguage(lang)}
+                defaultProtocol={defaultProtocol}
+                onChangeDefaultProtocol={setDefaultProtocol}
+                onClearDatabase={handleClearDatabase}
               />
             )}
           </motion.div>
@@ -856,6 +887,7 @@ export default function App() {
               setServerForProtocolSelector(null);
             }}
             theme={theme}
+            language={language}
           />
         )}
       </AnimatePresence>

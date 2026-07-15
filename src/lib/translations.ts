@@ -96,7 +96,23 @@ export const translations = {
     uploadTotal: "مجموع آپلود",
     vpngPro: "کلاینت فوق‌پایدار کلاینت SoftEther",
     proBadge: "حرفه‌ای",
-    trafficSpeedUnit: "سرعت ترافیک دستگاه"
+    trafficSpeedUnit: "سرعت ترافیک دستگاه",
+    
+    // Added for new request
+    defaultProtocolLabel: "پروتکل اتصال پیش‌فرض",
+    defaultProtocolDesc: "پروتکل پیش‌فرضی که در هنگام اتصال هوشمند یا خودکار به سرورها استفاده می‌شود.",
+    clearDatabase: "پاکسازی پایگاه داده سرورها",
+    clearDatabaseDesc: "حذف کامل سرورهای ذخیره شده در پایگاه داده داخلی (Room Database) جهت بازنشانی و همگام‌سازی مجدد.",
+    clearDatabaseBtn: "پاکسازی کل دیتابیس",
+    databaseCleared: "پایگاه داده سرورها با موفقیت پاکسازی شد.",
+    aboutTitle: "درباره برنامه VpnG Client",
+    aboutDesc: "این کلاینت یک پوسته فوق‌العاده زیبا، بهینه‌سازی شده و حرفه‌ای متصل به هسته VpnG Client Engine اندروید است که دسترسی آزاد، پایدار و کاملاً امن به اینترنت را فراهم می‌کند.",
+    developerName: "توسعه‌دهنده: مرتضی طاهری و جامعه متن‌باز",
+    repoLink: "ریپازیتوری VpnG در گیت‌هاب",
+    moduleDetails: "پروژه VpnG به همراه ماژول اتصال اندروید و هسته به صورت کاملاً متن‌باز در گیت‌هاب در دسترس است.",
+    chooseProtocolTitle: "انتخاب پروتکل ارتباطی",
+    chooseProtocolDesc: "برای برقراری اتصال امن با سرور انتخابی، یکی از پروتکل‌های ارتباطی زیر را انتخاب کنید:",
+    smartConnectOption: "اتصال هوشمند (اتصال خودکار به بهترین سرور)"
   },
   en: {
     dashboard: "Dashboard",
@@ -193,6 +209,22 @@ export const translations = {
     uploadTotal: "Total Uploaded",
     vpngPro: "Ultra-stable SoftEther Client Controller",
     proBadge: "PRO",
-    trafficSpeedUnit: "Device Traffic Speed"
+    trafficSpeedUnit: "Device Traffic Speed",
+    
+    // Added for new request
+    defaultProtocolLabel: "Default Connection Protocol",
+    defaultProtocolDesc: "The default protocol used when performing automatic smart connection or quick connect.",
+    clearDatabase: "Clear Servers Database",
+    clearDatabaseDesc: "Delete all saved servers from the internal local Room Database and reload.",
+    clearDatabaseBtn: "Clear Database",
+    databaseCleared: "Offline server database wiped successfully.",
+    aboutTitle: "About VpnG Client",
+    aboutDesc: "This client is an elegant, optimized, and responsive controller overlay interfacing with the native Android VpnG Client Engine. It leverages SoftEther's robust encryption and VPN Gate directories for unrestricted, secure internet browsing.",
+    developerName: "Developer: Morteza Taheri & Open Source Community",
+    repoLink: "VpnG GitHub Repository",
+    moduleDetails: "VpnG project along with its Android connection modules and core is fully open-source and hosted on GitHub.",
+    chooseProtocolTitle: "Select Connection Protocol",
+    chooseProtocolDesc: "To establish a secure tunnel with the selected server, please choose one of the available connection protocols:",
+    smartConnectOption: "Smart Connect (Auto-Select Best Server)"
   }
 };

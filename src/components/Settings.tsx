@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from "react";
 import { 
-  Shield, AlertOctagon, Moon, Sun, Search, AppWindow, Cpu, ShieldAlert, Globe
+  Shield, AlertOctagon, Moon, Sun, Search, AppWindow, Cpu, ShieldAlert, Globe, Database, Info, ExternalLink, Zap, Layers
 } from "lucide-react";
 import { AppFilterItem } from "../types";
 import { DynamicIcon } from "./Icons";
 import { motion } from "motion/react";
 import { translations, Language } from "../lib/translations";
+import { SelectorProtocol } from "./ProtocolSelector";
 
 interface SettingsProps {
   killSwitchEnabled: boolean;
@@ -19,6 +20,9 @@ interface SettingsProps {
   onResetPermission?: () => void;
   language: Language;
   onChangeLanguage: (lang: Language) => void;
+  defaultProtocol: SelectorProtocol | "SMART_CONNECT";
+  onChangeDefaultProtocol: (proto: SelectorProtocol | "SMART_CONNECT") => void;
+  onClearDatabase: () => Promise<void>;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -32,12 +36,80 @@ export const Settings: React.FC<SettingsProps> = ({
   onToggleDnsLeak,
   onResetPermission,
   language,
-  onChangeLanguage
+  onChangeLanguage,
+  defaultProtocol,
+  onChangeDefaultProtocol,
+  onClearDatabase
 }) => {
   const [appSearch, setAppSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<"ALL" | "Social" | "Browser" | "Entertainment" | "Tools">("ALL");
+  const [dbSuccessMessage, setDbSuccessMessage] = useState("");
 
   const t = translations[language];
+
+  const protocolList = useMemo(() => {
+    return [
+      { 
+        id: "SMART_CONNECT" as const, 
+        name: t.smartConnectOption, 
+        desc: language === "fa" ? "انتخاب خودکار هوشمند بر اساس بهترین پینگ و بالاترین ثبات" : "AI-driven automatic selection based on lowest latency & best quality", 
+        icon: "Zap" as const, 
+        color: "text-amber-400 bg-amber-500/10 border-amber-500/20"
+      },
+      { 
+        id: "SOFETHER_TCP" as const, 
+        name: "SOFETHER TCP", 
+        desc: language === "fa" ? "سرعت عالی، مناسب برای دور زدن فیلترینگ شدید (پورت ۴۴۳)" : "Excellent speeds, bypasses strict DPI networks (Port 443)", 
+        icon: "Cpu" as const, 
+        color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20"
+      },
+      { 
+        id: "SOFETHER_UDP" as const, 
+        name: "SOFETHER_UDP" as const, 
+        desc: language === "fa" ? "پروتکل پرسرعت SoftEther بر روی بستر UDP" : "High-speed SoftEther encapsulation on UDP", 
+        icon: "Cpu" as const, 
+        color: "text-blue-400 bg-blue-500/10 border-blue-500/20"
+      },
+      { 
+        id: "OPENVPN_TCP" as const, 
+        name: "OpenVPN TCP", 
+        desc: language === "fa" ? "امنیت و پایداری حداکثری اتصال در برابر نوسانات شبکه" : "Industry standard security with high connection stability", 
+        icon: "Shield" as const, 
+        color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+      },
+      { 
+        id: "OPENVPN_UDP" as const, 
+        name: "OpenVPN UDP", 
+        desc: language === "fa" ? "پروتکل اوپن وی‌پی‌ان با تاخیر کم و مناسب برای گیمینگ" : "Low latency OpenVPN standard, great for gaming & VoIP", 
+        icon: "Shield" as const, 
+        color: "text-purple-400 bg-purple-500/10 border-purple-500/20"
+      },
+      { 
+        id: "SSTP" as const, 
+        name: "SSTP", 
+        desc: language === "fa" ? "مبتنی بر SSL مایکروسافت، پایداری بالا در شبکه‌های حساس" : "Microsoft-engineered secure SSL protocol, great bypass", 
+        icon: "Globe" as const, 
+        color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
+      },
+      { 
+        id: "L2TP" as const, 
+        name: "L2TP / IPSec", 
+        desc: language === "fa" ? "سازگاری گسترده با مک، ویندوز و کلاینت پیش‌فرض اندروید" : "Broad OS compatibility with native system-level support", 
+        icon: "Layers" as const, 
+        color: "text-rose-400 bg-rose-500/10 border-rose-500/20"
+      },
+    ];
+  }, [language, t]);
+
+  const renderProtocolIcon = (icon: "Zap" | "Cpu" | "Shield" | "Globe" | "Layers", size = 16) => {
+    switch (icon) {
+      case "Zap": return <Zap size={size} />;
+      case "Cpu": return <Cpu size={size} />;
+      case "Shield": return <Shield size={size} />;
+      case "Globe": return <Globe size={size} />;
+      case "Layers": return <Layers size={size} />;
+    }
+  };
 
   // Filter apps
   const filteredApps = useMemo(() => {
@@ -88,6 +160,83 @@ export const Settings: React.FC<SettingsProps> = ({
               English
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Connection Protocol Settings */}
+      <div className={`p-5 rounded-3xl ${
+        theme === "dark" ? "bg-slate-900/60 border border-slate-800/80" : "bg-white border border-slate-100 shadow-sm"
+      } space-y-4`}>
+        <div className="space-y-1">
+          <h3 className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"} flex items-center gap-2`}>
+            <Shield size={15} className="text-cyan-400" />
+            {t.defaultProtocolLabel}
+          </h3>
+          <p className="text-[10px] text-slate-500 leading-relaxed text-left">
+            {t.defaultProtocolDesc}
+          </p>
+        </div>
+
+        {/* Custom Redesigned Premium Protocol Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {protocolList.map((proto) => {
+            const isSelected = defaultProtocol === proto.id;
+            return (
+              <button
+                key={proto.id}
+                type="button"
+                onClick={() => onChangeDefaultProtocol(proto.id)}
+                className={`flex items-start gap-3 p-3 rounded-2xl border text-right transition-all duration-300 relative overflow-hidden group cursor-pointer ${
+                  isSelected 
+                    ? theme === "dark"
+                      ? "bg-cyan-500/10 border-cyan-500/80 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                      : "bg-cyan-50/60 border-cyan-500/60 shadow-[0_4px_12px_rgba(6,182,212,0.06)]"
+                    : theme === "dark"
+                      ? "bg-slate-950/40 border-slate-800/80 hover:bg-slate-900/30 hover:border-slate-700"
+                      : "bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60 hover:border-slate-300"
+                }`}
+              >
+                {/* Visual Indicator on corner */}
+                {isSelected && (
+                  <div className={`absolute top-0 w-2 h-2 bg-cyan-500 ${
+                    language === "fa" ? "left-0 rounded-br-lg" : "right-0 rounded-bl-lg"
+                  }`} />
+                )}
+
+                {/* Protocol Icon */}
+                <div className={`p-2 rounded-xl border transition-all duration-300 shrink-0 ${
+                  isSelected 
+                    ? "bg-cyan-500 text-white border-cyan-500 shadow-md shadow-cyan-500/10" 
+                    : theme === "dark"
+                      ? "bg-slate-900 border-slate-800 text-slate-400 group-hover:text-slate-300"
+                      : "bg-white border-slate-200 text-slate-500 group-hover:text-slate-700"
+                }`}>
+                  {renderProtocolIcon(proto.icon, 14)}
+                </div>
+
+                {/* Name and Info */}
+                <div className="flex-1 space-y-0.5 text-right">
+                  <div className={`flex items-center gap-1.5 ${language === "fa" ? "justify-start" : "justify-start"}`}>
+                    <span className={`text-[10px] font-bold ${
+                      isSelected 
+                        ? theme === "dark" ? "text-cyan-400" : "text-cyan-600"
+                        : theme === "dark" ? "text-slate-200" : "text-slate-800"
+                    }`}>
+                      {proto.name}
+                    </span>
+                    {proto.id === "SMART_CONNECT" && (
+                      <span className="px-1.5 py-0.2 bg-amber-500/15 border border-amber-500/20 text-[7px] font-bold text-amber-500 rounded-md">
+                        {language === "fa" ? "پیشنهادی" : "AI Recommended"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[9px] text-slate-500 leading-normal line-clamp-2">
+                    {proto.desc}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -315,6 +464,80 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Clear Database Card */}
+      <div className={`p-5 rounded-3xl ${
+        theme === "dark" ? "bg-slate-900/60 border border-slate-800/80" : "bg-white border border-slate-100 shadow-sm"
+      } space-y-3`}>
+        <div className="space-y-1">
+          <h3 className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"} flex items-center gap-2`}>
+            <Database size={15} className="text-amber-500" />
+            {t.clearDatabase}
+          </h3>
+          <p className="text-[10px] text-slate-500 leading-relaxed text-left">
+            {t.clearDatabaseDesc}
+          </p>
+        </div>
+
+        <div className="pt-1 flex items-center gap-4">
+          <button
+            type="button"
+            onClick={async () => {
+              await onClearDatabase();
+              setDbSuccessMessage(t.databaseCleared);
+              setTimeout(() => setDbSuccessMessage(""), 4000);
+            }}
+            className="px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-bold transition-all cursor-pointer"
+          >
+            {t.clearDatabaseBtn}
+          </button>
+          {dbSuccessMessage && (
+            <span className="text-[10px] text-emerald-500 animate-pulse font-bold">{dbSuccessMessage}</span>
+          )}
+        </div>
+      </div>
+
+      {/* About VpnG Card */}
+      <div className={`p-5 rounded-3xl ${
+        theme === "dark" ? "bg-slate-900/60 border border-slate-800/80" : "bg-white border border-slate-100 shadow-sm"
+      } space-y-4`}>
+        <div className="space-y-1.5">
+          <h3 className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"} flex items-center gap-2`}>
+            <Info size={15} className="text-indigo-400" />
+            {t.aboutTitle}
+          </h3>
+          <p className="text-[10px] text-slate-500 leading-relaxed text-left">
+            {t.aboutDesc}
+          </p>
+        </div>
+
+        <div className={`p-3.5 rounded-2xl border text-[10px] space-y-2.5 ${
+          theme === "dark" ? "bg-slate-950/40 border-slate-850/80 text-slate-300" : "bg-slate-50 border-slate-150 text-slate-700"
+        }`}>
+          <div className="flex justify-between items-center">
+            <span className="text-slate-500">{language === "fa" ? "نام توسعه‌دهنده" : "Developer"}</span>
+            <span className="font-bold">{t.developerName}</span>
+          </div>
+
+          <div className="border-t border-slate-500/10 my-1" />
+
+          <div className="space-y-1.5 text-left">
+            <span className="text-slate-500 block mb-1">{language === "fa" ? "ماژول هسته" : "Core Module"}</span>
+            <p className="text-slate-400 leading-normal mb-2 text-[9px]">
+              {t.moduleDetails}
+            </p>
+            <a
+              href="https://github.com/morteza-taheri/VpnG"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-cyan-400 hover:underline font-bold transition-all text-[9px] cursor-pointer"
+            >
+              <ExternalLink size={10} />
+              {t.repoLink}
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,0 +1,6 @@
+{
+  "name": "VpnG",
+  "description": "A modern, material-style VPN controller and connection client powered by VPNGate and SoftEther, featuring traffic monitoring, speed tests, and profile management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

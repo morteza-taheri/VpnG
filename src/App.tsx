@@ -87,7 +87,45 @@ export default function App() {
     return (localStorage.getItem("vpng_default_protocol") as SelectorProtocol | "SMART_CONNECT") || "SOFETHER_TCP";
   });
 
+  // Background Harvest Update worker interval state (Configurable!)
+  const [backgroundInterval, setBackgroundInterval] = useState<number>(15);
+
   const trafficIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch background harvest interval on load
+  useEffect(() => {
+    const fetchInterval = async () => {
+      try {
+        const response = await fetch("/api/settings/interval");
+        const data = await response.json();
+        if (data.status === "success" && typeof data.intervalMinutes === "number") {
+          setBackgroundInterval(data.intervalMinutes);
+        }
+      } catch (err) {
+        console.error("Failed to fetch background update interval", err);
+      }
+    };
+    fetchInterval();
+  }, []);
+
+  const handleChangeBackgroundInterval = async (mins: number): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/settings/interval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intervalMinutes: mins })
+      });
+      const data = await response.json();
+      if (data.status === "success") {
+        setBackgroundInterval(mins);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to save background update interval", err);
+      return false;
+    }
+  };
 
   // Save default protocol to localStorage whenever it changes
   useEffect(() => {
@@ -695,6 +733,8 @@ export default function App() {
                 defaultProtocol={defaultProtocol}
                 onChangeDefaultProtocol={setDefaultProtocol}
                 onClearDatabase={handleClearDatabase}
+                backgroundInterval={backgroundInterval}
+                onChangeBackgroundInterval={handleChangeBackgroundInterval}
               />
             )}
           </motion.div>

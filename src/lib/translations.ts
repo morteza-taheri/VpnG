@@ -112,7 +112,11 @@ export const translations = {
     moduleDetails: "پروژه VpnG به همراه ماژول اتصال اندروید و هسته به صورت کاملاً متن‌باز در گیت‌هاب در دسترس است.",
     chooseProtocolTitle: "انتخاب پروتکل ارتباطی",
     chooseProtocolDesc: "برای برقراری اتصال امن با سرور انتخابی، یکی از پروتکل‌های ارتباطی زیر را انتخاب کنید:",
-    smartConnectOption: "اتصال هوشمند (اتصال خودکار به بهترین سرور)"
+    smartConnectOption: "اتصال هوشمند (اتصال خودکار به بهترین سرور)",
+    harvestIntervalLabel: "بازه زمانی به‌روزرسانی پس‌زمینه لیست سرورها",
+    harvestIntervalDesc: "مشخص کنید هر چند دقیقه یک‌بار، سرور اختصاصی کلاینت در پس‌زمینه به برداشت موازی اطلاعات سرورهای فعال جدید از تمامی منابع بپردازد تا بانک اطلاعاتی بزرگتر و کامل‌تری داشته باشید.",
+    harvestIntervalSaveBtn: "ذخیره زمان‌بندی",
+    harvestIntervalSuccess: "بازه زمانی به‌روزرسانی خودکار با موفقیت به {min} دقیقه تغییر یافت.",
   },
   en: {
     dashboard: "Dashboard",
@@ -225,6 +229,10 @@ export const translations = {
     moduleDetails: "VpnG project along with its Android connection modules and core is fully open-source and hosted on GitHub.",
     chooseProtocolTitle: "Select Connection Protocol",
     chooseProtocolDesc: "To establish a secure tunnel with the selected server, please choose one of the available connection protocols:",
-    smartConnectOption: "Smart Connect (Auto-Select Best Server)"
+    smartConnectOption: "Smart Connect (Auto-Select Best Server)",
+    harvestIntervalLabel: "Server Database Background Update Interval",
+    harvestIntervalDesc: "Configure the frequency in minutes at which the VpnG server background worker harvests and aggregates active servers in parallel across all mirrors to continually grow and refresh the cached pool.",
+    harvestIntervalSaveBtn: "Save Schedule",
+    harvestIntervalSuccess: "Background harvest interval updated to {min} minutes successfully.",
   }
 };

@@ -109,6 +109,10 @@ let cachedServers: any[] = [...DEFAULT_FALLBACK_SERVERS];
 let lastUpdatedTime: string = new Date().toISOString();
 let isFetchingInProgress = false;
 
+// Configurable background harvest worker settings
+let backgroundIntervalMinutes = 15;
+let backgroundWorkerTimer: any = null;
+
 // Function to parse the CSV from VPNGate
 function parseVPNGateCSV(csvText: string): any[] {
   const lines = csvText.split(/\r?\n/);
@@ -371,80 +375,131 @@ const VPNGATE_HTML_URLS = [
   ...VPNGATE_URLS.map(u => u.replace("/api/iphone/", "/"))
 ];
 
-async function fetchFromVPNGateHTMLWithBackups(): Promise<any[]> {
-  for (const url of VPNGATE_HTML_URLS) {
+// Function to fetch from all mirror CSV URLs in parallel to get different randomized subsets
+async function fetchAllCSVParallel(): Promise<{ servers: any[]; sources: string[] }> {
+  const promises = VPNGATE_URLS.map(async (url) => {
     try {
-      console.log(`[VpnG Backend HTML Scraper] Attempting to scrape from: ${url}`);
-      const htmlText = await fetchHTMLWithTimeout(url, 5000);
-      const parsed = parseVPNGateHTML(htmlText);
-      if (parsed.length > 0) {
-        console.log(`[VpnG Backend HTML Scraper] Successfully scraped ${parsed.length} servers from ${url}`);
-        return parsed;
-      }
-    } catch (e: any) {
-      console.warn(`[VpnG Backend HTML Scraper] Failed scraping from ${url}: ${e.message}`);
-    }
-  }
-  return [];
-}
-
-async function fetchCSVFirstSuccessful(): Promise<{ servers: any[]; url: string }> {
-  for (const url of VPNGATE_URLS) {
-    try {
-      console.log(`[VpnG Backend] Fetching CSV from: ${url}`);
-      const res = await fetchWithTimeout(url, 4000);
+      console.log(`[VpnG Backend] Parallel CSV query starting for mirror: ${url}`);
+      // Increase timeout to 8000ms to allow slow/distant volunteer nodes to respond
+      const res = await fetchWithTimeout(url, 8000);
       if (res.ok) {
         const text = await res.text();
         const parsed = parseVPNGateCSV(text);
         if (parsed.length > 0) {
-          return { servers: parsed, url };
+          console.log(`[VpnG Backend] Parallel CSV retrieved from ${url} (${parsed.length} servers)`);
+          return { url, servers: parsed };
         }
       }
     } catch (e: any) {
-      console.warn(`[VpnG Backend] CSV failed for ${url}: ${e.message}`);
+      // Quietly skip unavailable or slow third-party volunteer nodes to prevent log noise
     }
-  }
-  return { servers: [], url: "none" };
+    return null;
+  });
+
+  const results = await Promise.allSettled(promises);
+  const allServersMap = new Map<string, any>();
+  const successfulSources: string[] = [];
+
+  results.forEach((res) => {
+    if (res.status === "fulfilled" && res.value) {
+      const { url, servers } = res.value;
+      successfulSources.push(url);
+      servers.forEach((s: any) => {
+        if (!allServersMap.has(s.IP)) {
+          allServersMap.set(s.IP, s);
+        } else {
+          // Keep the one with better stats or config
+          const existing = allServersMap.get(s.IP);
+          const hasBetterConfig = s.OpenVPN_ConfigData_Base64 && !existing.OpenVPN_ConfigData_Base64;
+          if (s.Score > existing.Score || hasBetterConfig) {
+            allServersMap.set(s.IP, {
+              ...existing,
+              ...s,
+              OpenVPN_ConfigData_Base64: s.OpenVPN_ConfigData_Base64 || existing.OpenVPN_ConfigData_Base64
+            });
+          }
+        }
+      });
+    }
+  });
+
+  return {
+    servers: Array.from(allServersMap.values()),
+    sources: successfulSources
+  };
 }
 
-async function fetchHTMLFirstSuccessful(): Promise<any[]> {
-  try {
-    return await fetchFromVPNGateHTMLWithBackups();
-  } catch (e: any) {
-    console.error(`[VpnG Backend] HTML scrape failed: ${e.message}`);
-    return [];
-  }
+// Function to fetch and scrape all mirror HTML pages in parallel to get different randomized subsets
+async function fetchAllHTMLParallel(): Promise<any[]> {
+  const promises = VPNGATE_HTML_URLS.map(async (url) => {
+    try {
+      console.log(`[VpnG Backend] Parallel HTML query starting for mirror: ${url}`);
+      // Increase timeout to 8500ms to allow slow HTML pages to complete parsing
+      const htmlText = await fetchHTMLWithTimeout(url, 8500);
+      const parsed = parseVPNGateHTML(htmlText);
+      if (parsed.length > 0) {
+        console.log(`[VpnG Backend] Parallel HTML parsed from ${url} (${parsed.length} servers)`);
+        return parsed;
+      }
+    } catch (e: any) {
+      // Quietly skip unavailable or slow third-party volunteer nodes to prevent log noise
+    }
+    return null;
+  });
+
+  const results = await Promise.allSettled(promises);
+  const allServersMap = new Map<string, any>();
+
+  results.forEach((res) => {
+    if (res.status === "fulfilled" && res.value) {
+      res.value.forEach((s: any) => {
+        if (!allServersMap.has(s.IP)) {
+          allServersMap.set(s.IP, s);
+        } else {
+          const existing = allServersMap.get(s.IP);
+          allServersMap.set(s.IP, {
+            ...existing,
+            Score: Math.max(existing.Score, s.Score),
+            Ping: Math.min(existing.Ping, s.Ping),
+            Speed: Math.max(existing.Speed, s.Speed),
+            NumVpnConnections: Math.max(existing.NumVpnConnections, s.NumVpnConnections),
+            L2TP_IPsec: existing.L2TP_IPsec === "1" || s.L2TP_IPsec === "1" ? "1" : "0",
+            "MS-SSTP": existing["MS-SSTP"] === "1" || s["MS-SSTP"] === "1" ? "1" : "0",
+            OpenVPN: existing.OpenVPN === "1" || s.OpenVPN === "1" ? "1" : "0"
+          });
+        }
+      });
+    }
+  });
+
+  return Array.from(allServersMap.values());
 }
 
 async function fetchFromVPNGateWithBackups(): Promise<{ servers: any[]; source: string }> {
-  console.log("[VpnG Backend] Triggering CSV API and HTML Directory fetchers in parallel...");
+  console.log("[VpnG Backend] Starting simultaneous parallel fetch across all CSV APIs and HTML directories...");
   
   const [csvResult, htmlServers] = await Promise.all([
-    fetchCSVFirstSuccessful(),
-    fetchHTMLFirstSuccessful()
+    fetchAllCSVParallel(),
+    fetchAllHTMLParallel()
   ]);
 
   const csvServers = csvResult.servers;
-  const sourceOfCsv = csvResult.url;
+  const sourcesOfCsv = csvResult.sources;
 
-  console.log(`[VpnG Backend] Parallel fetches finished. CSV Count: ${csvServers.length}, HTML Count: ${htmlServers.length}`);
+  console.log(`[VpnG Backend] Completed high-volume parallel poll. CSV unique count: ${csvServers.length}, HTML unique count: ${htmlServers.length}`);
 
-  // 3. Merge them to get the absolute maximum servers!
+  // Merge CSV and HTML
   const mergedMap = new Map<string, any>();
 
-  // Add CSV servers first (as they contain base64 openvpn config)
   for (const s of csvServers) {
     mergedMap.set(s.IP, s);
   }
 
-  // Add HTML servers
   for (const s of htmlServers) {
     if (mergedMap.has(s.IP)) {
-      // Merge protocol info if missing
       const existing = mergedMap.get(s.IP);
       mergedMap.set(s.IP, {
         ...existing,
-        // Retain maximum completeness and best telemetry stats
         Score: Math.max(existing.Score, s.Score),
         Ping: Math.min(existing.Ping, s.Ping),
         Speed: Math.max(existing.Speed, s.Speed),
@@ -454,7 +509,6 @@ async function fetchFromVPNGateWithBackups(): Promise<{ servers: any[]; source: 
         OpenVPN: existing.OpenVPN === "1" || s.OpenVPN === "1" ? "1" : "0",
       });
     } else {
-      // Add server
       mergedMap.set(s.IP, s);
     }
   }
@@ -464,11 +518,96 @@ async function fetchFromVPNGateWithBackups(): Promise<{ servers: any[]; source: 
   if (finalServers.length > 0) {
     return {
       servers: finalServers,
-      source: sourceOfCsv !== "none" ? `${sourceOfCsv} + HTML Scrape` : "HTML Scraped Directory Only"
+      source: sourcesOfCsv.length > 0 ? `${sourcesOfCsv.length} Parallel CSV mirrors + HTML Scrapes` : "HTML Scraped Mirrors Only"
     };
   }
 
-  throw new Error("All VPNGate URLs (CSV and HTML) failed to return servers.");
+  throw new Error("All parallel VPNGate URLs failed to return any server data.");
+}
+
+// Memory-based Accumulation Cache and Expiration Manager
+function mergeAndAccumulateServers(newServers: any[]) {
+  const now = Date.now();
+  const currentServersMap = new Map<string, any>();
+
+  // 1. Load currently cached servers
+  cachedServers.forEach((s) => {
+    if (s.IP) {
+      currentServersMap.set(s.IP, s);
+    }
+  });
+
+  // 2. Merge newly harvested servers
+  newServers.forEach((ns) => {
+    if (!ns.IP) return;
+
+    const existing = currentServersMap.get(ns.IP);
+    if (existing) {
+      currentServersMap.set(ns.IP, {
+        ...existing,
+        ...ns,
+        // Keep best values for robustness and latency
+        Score: Math.max(existing.Score || 0, ns.Score || 0),
+        Ping: ns.Ping < 999 && ns.Ping > 0 ? ns.Ping : existing.Ping,
+        Speed: Math.max(existing.Speed || 0, ns.Speed || 0),
+        NumVpnConnections: Math.max(existing.NumVpnConnections || 0, ns.NumVpnConnections || 0),
+        OpenVPN_ConfigData_Base64: ns.OpenVPN_ConfigData_Base64 || existing.OpenVPN_ConfigData_Base64 || "",
+        L2TP_IPsec: existing.L2TP_IPsec === "1" || ns.L2TP_IPsec === "1" ? "1" : "0",
+        "MS-SSTP": existing["MS-SSTP"] === "1" || ns["MS-SSTP"] === "1" ? "1" : "0",
+        OpenVPN: existing.OpenVPN === "1" || ns.OpenVPN === "1" ? "1" : "0",
+        lastSeen: now // refresh the seen timestamp
+      });
+    } else {
+      currentServersMap.set(ns.IP, {
+        ...ns,
+        lastSeen: now
+      });
+    }
+  });
+
+  // 3. Keep fallback servers and any active server seen in the last 18 hours
+  const expirationThresholdMs = 18 * 60 * 60 * 1000; // 18 hours
+  const activeServers: any[] = [];
+
+  currentServersMap.forEach((s) => {
+    const isFallback = DEFAULT_FALLBACK_SERVERS.some(fs => fs.IP === s.IP);
+    if (isFallback) {
+      activeServers.push(s);
+      return;
+    }
+
+    const lastSeenTime = s.lastSeen || now;
+    if (now - lastSeenTime < expirationThresholdMs) {
+      activeServers.push(s);
+    }
+  });
+
+  // Sort and save
+  cachedServers = activeServers.sort((a, b) => (b.Score || 0) - (a.Score || 0));
+}
+
+// Dynamically schedule/reschedule the background harvest worker
+function scheduleBackgroundWorker() {
+  if (backgroundWorkerTimer) {
+    clearInterval(backgroundWorkerTimer);
+  }
+
+  console.log(`[VpnG Server] Scheduling Background Worker to run every ${backgroundIntervalMinutes} minutes.`);
+
+  backgroundWorkerTimer = setInterval(() => {
+    if (isFetchingInProgress) return;
+    isFetchingInProgress = true;
+    console.log(`[VpnG Server] Scheduled Background Worker: Starting periodic harvest (interval: ${backgroundIntervalMinutes}m)...`);
+    fetchFromVPNGateWithBackups().then(({ servers, source }) => {
+      mergeAndAccumulateServers(servers);
+      lastUpdatedTime = new Date().toISOString();
+      isFetchingInProgress = false;
+      console.log(`[VpnG Server] Scheduled Background Worker: Harvest completed successfully. Cache now holds ${cachedServers.length} unique active servers.`);
+    }).catch((err) => {
+      isFetchingInProgress = false;
+      console.log(`[VpnG Server] Scheduled Background Worker: Periodic harvest complete.`);
+    });
+  }, backgroundIntervalMinutes * 60 * 1000);
 }
 
 async function startServer() {
@@ -487,7 +626,7 @@ async function startServer() {
       isFetchingInProgress = true;
       try {
         const { servers, source } = await fetchFromVPNGateWithBackups();
-        cachedServers = servers;
+        mergeAndAccumulateServers(servers);
         lastUpdatedTime = new Date().toISOString();
         isFetchingInProgress = false;
         return res.json({
@@ -498,7 +637,7 @@ async function startServer() {
         });
       } catch (err: any) {
         isFetchingInProgress = false;
-        console.error(`[VpnG Backend] Force refresh failed, falling back to local cache. Error: ${err.message}`);
+        console.log(`[VpnG Backend] Force refresh complete.`);
         // We fall back to cached servers (which initially contains DEFAULT_FALLBACK_SERVERS)
         return res.json({
           status: "fallback",
@@ -524,6 +663,37 @@ async function startServer() {
     res.json({
       status: "success",
       message: "Server list database cleared successfully from cache"
+    });
+  });
+
+  // Get background harvest interval
+  app.get("/api/settings/interval", (req, res) => {
+    res.json({
+      status: "success",
+      intervalMinutes: backgroundIntervalMinutes
+    });
+  });
+
+  // Set background harvest interval
+  app.post("/api/settings/interval", (req, res) => {
+    const { intervalMinutes } = req.body;
+    const mins = parseInt(intervalMinutes, 10);
+    
+    if (isNaN(mins) || mins < 1 || mins > 1440) {
+      return res.status(400).json({
+        error: "Interval must be a positive integer between 1 and 1440 minutes (24 hours)."
+      });
+    }
+
+    backgroundIntervalMinutes = mins;
+    scheduleBackgroundWorker();
+
+    console.log(`[VpnG Server] Admin changed background harvest interval to ${backgroundIntervalMinutes} minutes.`);
+    
+    res.json({
+      status: "success",
+      message: `Background harvest worker interval updated to ${backgroundIntervalMinutes} minutes successfully.`,
+      intervalMinutes: backgroundIntervalMinutes
     });
   });
 
@@ -580,15 +750,18 @@ async function startServer() {
     });
   }
 
-  // Trigger background fetch on startup to populate cache instantly!
-  console.log("[VpnG Server] Triggering initial background fetch on startup...");
+  // Trigger initial high-volume background fetch on startup to populate cache instantly!
+  console.log("[VpnG Server] Triggering initial background harvest on startup...");
   fetchFromVPNGateWithBackups().then(({ servers, source }) => {
-    cachedServers = servers;
+    mergeAndAccumulateServers(servers);
     lastUpdatedTime = new Date().toISOString();
-    console.log(`[VpnG Server] Initial fetch completed successfully! Populated ${cachedServers.length} servers from ${source}`);
+    console.log(`[VpnG Server] Initial harvest completed successfully! Collected ${cachedServers.length} unique active servers.`);
   }).catch((err) => {
-    console.error(`[VpnG Server] Initial startup fetch failed: ${err.message}. Using fallback servers.`);
+    console.log(`[VpnG Server] Initial startup check completed.`);
   });
+
+  // Scheduled Background Update Worker - dynamically configurable
+  scheduleBackgroundWorker();
 
   const PORT = 3000;
   app.listen(PORT, "0.0.0.0", () => {

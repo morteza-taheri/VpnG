@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Shield, AlertOctagon, Moon, Sun, Search, AppWindow, Cpu, ShieldAlert, Globe, Database, Info, ExternalLink, Zap, Layers
 } from "lucide-react";
@@ -23,6 +23,8 @@ interface SettingsProps {
   defaultProtocol: SelectorProtocol | "SMART_CONNECT";
   onChangeDefaultProtocol: (proto: SelectorProtocol | "SMART_CONNECT") => void;
   onClearDatabase: () => Promise<void>;
+  backgroundInterval: number;
+  onChangeBackgroundInterval: (mins: number) => Promise<boolean>;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -39,11 +41,43 @@ export const Settings: React.FC<SettingsProps> = ({
   onChangeLanguage,
   defaultProtocol,
   onChangeDefaultProtocol,
-  onClearDatabase
+  onClearDatabase,
+  backgroundInterval,
+  onChangeBackgroundInterval
 }) => {
   const [appSearch, setAppSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<"ALL" | "Social" | "Browser" | "Entertainment" | "Tools">("ALL");
   const [dbSuccessMessage, setDbSuccessMessage] = useState("");
+
+  const [intervalInput, setIntervalInput] = useState(backgroundInterval.toString());
+  const [intervalSuccess, setIntervalSuccess] = useState("");
+  const [intervalError, setIntervalError] = useState("");
+  const [isSavingInterval, setIsSavingInterval] = useState(false);
+
+  useEffect(() => {
+    setIntervalInput(backgroundInterval.toString());
+  }, [backgroundInterval]);
+
+  const handleSaveInterval = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIntervalError("");
+    setIntervalSuccess("");
+    const mins = parseInt(intervalInput, 10);
+    if (isNaN(mins) || mins < 1 || mins > 1440) {
+      setIntervalError(language === "fa" ? "زمان باید بین ۱ تا ۱۴۴۰ دقیقه باشد." : "Interval must be between 1 and 1440 minutes.");
+      return;
+    }
+    setIsSavingInterval(true);
+    const success = await onChangeBackgroundInterval(mins);
+    setIsSavingInterval(false);
+    if (success) {
+      const msg = t.harvestIntervalSuccess.replace("{min}", mins.toString());
+      setIntervalSuccess(msg);
+      setTimeout(() => setIntervalSuccess(""), 4000);
+    } else {
+      setIntervalError(language === "fa" ? "خطا در برقراری ارتباط با سرور." : "Failed to connect to the server.");
+    }
+  };
 
   const t = translations[language];
 
@@ -464,6 +498,58 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Background Harvest Interval Settings */}
+      <div className={`p-5 rounded-3xl ${
+        theme === "dark" ? "bg-slate-900/60 border border-slate-800/80" : "bg-white border border-slate-100 shadow-sm"
+      } space-y-4`}>
+        <div className="space-y-1">
+          <h3 className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"} flex items-center gap-2`}>
+            <Layers size={15} className="text-amber-400" />
+            {t.harvestIntervalLabel}
+          </h3>
+          <p className="text-[10px] text-slate-500 leading-relaxed text-right sm:text-left">
+            {t.harvestIntervalDesc}
+          </p>
+        </div>
+
+        <form onSubmit={handleSaveInterval} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <input
+              type="number"
+              min="1"
+              max="1440"
+              value={intervalInput}
+              onChange={(e) => setIntervalInput(e.target.value)}
+              className={`w-full px-4 py-2.5 rounded-xl text-[11px] outline-none border font-sans ${
+                theme === "dark" 
+                  ? "bg-slate-950 border-slate-800 text-slate-100 focus:border-amber-500/40" 
+                  : "bg-slate-50 border-slate-200 text-slate-800 focus:border-amber-500/40"
+              }`}
+            />
+            <span className={`absolute top-3 text-[9px] text-slate-500 font-bold ${
+              language === "fa" ? "left-4" : "right-4"
+            }`}>
+              {language === "fa" ? "دقیقه" : "mins"}
+            </span>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSavingInterval}
+            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-500/50 text-slate-950 rounded-xl text-[10px] font-bold transition-all duration-150 cursor-pointer text-center whitespace-nowrap shrink-0"
+          >
+            {isSavingInterval ? (language === "fa" ? "در حال ثبت..." : "Saving...") : t.harvestIntervalSaveBtn}
+          </button>
+        </form>
+
+        {intervalSuccess && (
+          <p className="text-[10px] text-emerald-500 font-bold animate-pulse text-right sm:text-left">{intervalSuccess}</p>
+        )}
+        {intervalError && (
+          <p className="text-[10px] text-rose-500 font-bold text-right sm:text-left">{intervalError}</p>
+        )}
+      </div>
 
       {/* Clear Database Card */}
       <div className={`p-5 rounded-3xl ${

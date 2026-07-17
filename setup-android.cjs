@@ -109,6 +109,16 @@ const manifestPath = path.join(androidDir, 'app/src/main/AndroidManifest.xml');
 if (fs.existsSync(manifestPath)) {
     let content = fs.readFileSync(manifestPath, 'utf8');
     
+    let isModified = false;
+
+    // Enable cleartext traffic (HTTP) for local API development/testing on real device
+    if (!content.includes('android:usesCleartextTraffic="true"')) {
+        console.log("[+] Patching AndroidManifest.xml to enable usesCleartextTraffic...");
+        // Match <application and replace with <application android:usesCleartextTraffic="true"
+        content = content.replace('<application', '<application android:usesCleartextTraffic="true"');
+        isModified = true;
+    }
+
     if (!content.includes('com.vpng.client.vpn.MyVpnService')) {
         console.log("[+] Patching AndroidManifest.xml to register VpnService...");
         
@@ -124,10 +134,15 @@ if (fs.existsSync(manifestPath)) {
     </application>`;
 
         content = content.replace('</application>', serviceDeclaration);
+        isModified = true;
+        console.log("[+] AndroidManifest.xml VpnService registered.");
+    }
+
+    if (isModified) {
         fs.writeFileSync(manifestPath, content, 'utf8');
         console.log("[+] AndroidManifest.xml successfully patched.");
     } else {
-        console.log("[~] AndroidManifest.xml already contains MyVpnService registration.");
+        console.log("[~] AndroidManifest.xml is already patched.");
     }
 } else {
     console.error(`[!] Error: AndroidManifest.xml not found at ${manifestPath}`);

@@ -43,7 +43,7 @@ call npx cap sync
 echo.
 echo [+] Injecting and configuring native Android VPN files...
 echo [+] در حال کپی و پیکربندی خودکار فایل‌های بومی اندروید...
-call node setup-android.js
+call node setup-android.cjs
 
 echo.
 echo =======================================================

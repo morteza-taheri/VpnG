@@ -28,7 +28,7 @@ if not exist "capacitor.config.json" if not exist "capacitor.config.ts" (
     echo [+] Initializing Capacitor...
     call npx @capacitor/cli init VpnG com.vpng.client --web-dir=dist
     call npm install @capacitor/android @capacitor/cli
-    call npx @capacitor/cli android add
+    call npx @capacitor/cli add android
 )
 
 echo.

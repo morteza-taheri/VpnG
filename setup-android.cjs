@@ -13,15 +13,39 @@ if (!fs.existsSync(androidDir)) {
     process.exit(0);
 }
 
-// 1. Destination for native VPN Kotlin files
+// 1. Destination for native VPN files
 const vpnDestDir = path.join(androidDir, 'app/src/main/java/com/vpng/client/vpn');
 fs.mkdirSync(vpnDestDir, { recursive: true });
 
-// Source native files
+// 2. Detect language based on MainActivity files
+const mainActivityPath = path.join(androidDir, 'app/src/main/java/com/vpng/client/MainActivity.kt');
+const mainActivityJavaPath = path.join(androidDir, 'app/src/main/java/com/vpng/client/MainActivity.java');
+
+const isKotlin = fs.existsSync(mainActivityPath);
+const extension = isKotlin ? 'kt' : 'java';
+
+console.log(`[+] Detected project type: ${isKotlin ? 'Kotlin' : 'Java'}`);
+
+// Clean up old files of the opposite extension to avoid build errors (important!)
+const oppositeExtension = isKotlin ? 'java' : 'kt';
+const oldFiles = [
+    `ConnectionConfigHelper.${oppositeExtension}`,
+    `MyVpnService.${oppositeExtension}`,
+    `VpnBridgePlugin.${oppositeExtension}`
+];
+for (const oldFile of oldFiles) {
+    const oldFilePath = path.join(vpnDestDir, oldFile);
+    if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+        console.log(`[-] Removed obsolete file: ${oldFile}`);
+    }
+}
+
+// Source native files (use detected extension)
 const sourceFiles = {
-    'ConnectionConfigHelper.kt': path.join(__dirname, 'android-source/ConnectionConfigHelper.kt'),
-    'MyVpnService.kt': path.join(__dirname, 'android-source/MyVpnService.kt'),
-    'VpnBridgePlugin.kt': path.join(__dirname, 'android-source/VpnBridgePlugin.kt')
+    [`ConnectionConfigHelper.${extension}`]: path.join(__dirname, `android-source/ConnectionConfigHelper.${extension}`),
+    [`MyVpnService.${extension}`]: path.join(__dirname, `android-source/MyVpnService.${extension}`),
+    [`VpnBridgePlugin.${extension}`]: path.join(__dirname, `android-source/VpnBridgePlugin.${extension}`)
 };
 
 for (const [filename, sourcePath] of Object.entries(sourceFiles)) {
@@ -32,10 +56,6 @@ for (const [filename, sourcePath] of Object.entries(sourceFiles)) {
         console.warn(`[!] Warning: Source file ${filename} not found at ${sourcePath}`);
     }
 }
-
-// 2. Patch MainActivity to register VpnBridgePlugin
-const mainActivityPath = path.join(androidDir, 'app/src/main/java/com/vpng/client/MainActivity.kt');
-const mainActivityJavaPath = path.join(androidDir, 'app/src/main/java/com/vpng/client/MainActivity.java');
 
 if (fs.existsSync(mainActivityPath)) {
     let content = fs.readFileSync(mainActivityPath, 'utf8');

@@ -25,6 +25,8 @@ interface SettingsProps {
   onClearDatabase: () => Promise<void>;
   backgroundInterval: number;
   onChangeBackgroundInterval: (mins: number) => Promise<boolean>;
+  apiBaseUrl: string;
+  onChangeApiBaseUrl: (url: string) => Promise<boolean>;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -43,7 +45,9 @@ export const Settings: React.FC<SettingsProps> = ({
   onChangeDefaultProtocol,
   onClearDatabase,
   backgroundInterval,
-  onChangeBackgroundInterval
+  onChangeBackgroundInterval,
+  apiBaseUrl,
+  onChangeApiBaseUrl
 }) => {
   const [appSearch, setAppSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<"ALL" | "Social" | "Browser" | "Entertainment" | "Tools">("ALL");
@@ -54,9 +58,41 @@ export const Settings: React.FC<SettingsProps> = ({
   const [intervalError, setIntervalError] = useState("");
   const [isSavingInterval, setIsSavingInterval] = useState(false);
 
+  const [apiUrlInput, setApiUrlInput] = useState(apiBaseUrl);
+  const [apiUrlSuccess, setApiUrlSuccess] = useState("");
+  const [apiUrlError, setApiUrlError] = useState("");
+  const [isSavingApiUrl, setIsSavingApiUrl] = useState(false);
+
   useEffect(() => {
     setIntervalInput(backgroundInterval.toString());
   }, [backgroundInterval]);
+
+  useEffect(() => {
+    setApiUrlInput(apiBaseUrl);
+  }, [apiBaseUrl]);
+
+  const handleSaveApiUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setApiUrlError("");
+    setApiUrlSuccess("");
+    
+    const trimmed = apiUrlInput.trim();
+    if (trimmed !== "" && !/^https?:\/\//i.test(trimmed)) {
+      setApiUrlError(t.apiBaseUrlError);
+      return;
+    }
+    
+    setIsSavingApiUrl(true);
+    const success = await onChangeApiBaseUrl(trimmed);
+    setIsSavingApiUrl(false);
+    
+    if (success) {
+      setApiUrlSuccess(t.apiBaseUrlSuccess);
+      setTimeout(() => setApiUrlSuccess(""), 4000);
+    } else {
+      setApiUrlError(language === "fa" ? "خطا در برقراری ارتباط با سرور." : "Failed to connect to the server.");
+    }
+  };
 
   const handleSaveInterval = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -548,6 +584,52 @@ export const Settings: React.FC<SettingsProps> = ({
         )}
         {intervalError && (
           <p className="text-[10px] text-rose-500 font-bold text-right sm:text-left">{intervalError}</p>
+        )}
+      </div>
+
+      {/* Backend API Server URL Settings */}
+      <div className={`p-5 rounded-3xl ${
+        theme === "dark" ? "bg-slate-900/60 border border-slate-800/80" : "bg-white border border-slate-100 shadow-sm"
+      } space-y-4`}>
+        <div className="space-y-1">
+          <h3 className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"} flex items-center gap-2`}>
+            <Globe size={15} className="text-cyan-400" />
+            {t.apiBaseUrlLabel}
+          </h3>
+          <p className="text-[10px] text-slate-500 leading-relaxed text-right sm:text-left">
+            {t.apiBaseUrlDesc}
+          </p>
+        </div>
+
+        <form onSubmit={handleSaveApiUrl} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder={t.apiBaseUrlPlaceholder}
+              value={apiUrlInput}
+              onChange={(e) => setApiUrlInput(e.target.value)}
+              className={`w-full px-4 py-2.5 rounded-xl text-[11px] outline-none border font-sans text-left ltr ${
+                theme === "dark" 
+                  ? "bg-slate-950 border-slate-800 text-slate-100 focus:border-cyan-500/40" 
+                  : "bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-500/40"
+              }`}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSavingApiUrl}
+            className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-cyan-500/50 text-slate-950 rounded-xl text-[10px] font-bold transition-all duration-150 cursor-pointer text-center whitespace-nowrap shrink-0"
+          >
+            {isSavingApiUrl ? (language === "fa" ? "در حال ثبت..." : "Saving...") : t.apiBaseUrlSaveBtn}
+          </button>
+        </form>
+
+        {apiUrlSuccess && (
+          <p className="text-[10px] text-emerald-500 font-bold animate-pulse text-right sm:text-left">{apiUrlSuccess}</p>
+        )}
+        {apiUrlError && (
+          <p className="text-[10px] text-rose-500 font-bold text-right sm:text-left">{apiUrlError}</p>
         )}
       </div>
 

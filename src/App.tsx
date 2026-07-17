@@ -17,9 +17,104 @@ import { Key, Wifi } from "lucide-react";
 import { VpnGLogo } from "./components/VpnGLogo";
 import { translations } from "./lib/translations";
 
+const FRONTEND_FALLBACK_SERVERS: VpnServer[] = [
+  {
+    HostName: "vg132.vpngate.net",
+    IP: "219.100.37.245",
+    Score: 1253450,
+    Ping: 12,
+    Speed: 87400000,
+    CountryLong: "Japan",
+    CountryShort: "JP",
+    NumVpnConnections: 452,
+    Operator: "VPNGate Operator JP-1",
+    Message: "High-speed academic server located in Tokyo, Japan.",
+    OpenVPN_ConfigData_Base64: "",
+    L2TP_IPsec: "1",
+    "MS-SSTP": "1",
+    OpenVPN: "1",
+    CreatedAt: new Date().toISOString()
+  },
+  {
+    HostName: "vg042.vpngate.net",
+    IP: "185.220.101.4",
+    Score: 984500,
+    Ping: 35,
+    Speed: 45200000,
+    CountryLong: "Germany",
+    CountryShort: "DE",
+    NumVpnConnections: 189,
+    Operator: "VPNGate Operator DE-5",
+    Message: "Secure server in Frankfurt, support all protocols.",
+    OpenVPN_ConfigData_Base64: "",
+    L2TP_IPsec: "1",
+    "MS-SSTP": "0",
+    OpenVPN: "1",
+    CreatedAt: new Date().toISOString()
+  },
+  {
+    HostName: "vg205.vpngate.net",
+    IP: "103.208.220.154",
+    Score: 843200,
+    Ping: 42,
+    Speed: 38100000,
+    CountryLong: "South Korea",
+    CountryShort: "KR",
+    NumVpnConnections: 94,
+    Operator: "VPNGate Academic KR",
+    Message: "Seoul backbone server with ultra-stable ping.",
+    OpenVPN_ConfigData_Base64: "",
+    L2TP_IPsec: "0",
+    "MS-SSTP": "1",
+    OpenVPN: "1",
+    CreatedAt: new Date().toISOString()
+  }
+];
+
 export default function App() {
   // Navigation tabs: "dashboard" | "servers" | "profiles" | "speedtest" | "settings"
   const [activeTab, setActiveTab] = useState<"dashboard" | "servers" | "profiles" | "speedtest" | "settings">("dashboard");
+  
+  // API Server URL configuration for mobile / Capacitor clients
+  const [apiBaseUrl, setApiBaseUrl] = useState<string>(() => {
+    return localStorage.getItem("vpng_api_base_url") || "";
+  });
+
+  const getApiUrl = (path: string) => {
+    if (!apiBaseUrl) return path;
+    const base = apiBaseUrl.replace(/\/+$/, "");
+    const p = path.startsWith("/") ? path : `/${path}`;
+    return `${base}${p}`;
+  };
+
+  const handleChangeApiBaseUrl = async (url: string): Promise<boolean> => {
+    const trimmed = url.trim().replace(/\/+$/, "");
+    if (!trimmed) {
+      localStorage.removeItem("vpng_api_base_url");
+      setApiBaseUrl("");
+      return true;
+    }
+    try {
+      const response = await fetch(`${trimmed}/api/servers`);
+      const data = await response.json();
+      if (data && data.servers) {
+        localStorage.setItem("vpng_api_base_url", trimmed);
+        setApiBaseUrl(trimmed);
+        setServers(data.servers);
+        setLastUpdated(data.lastUpdated);
+        localStorage.setItem("vpng_servers_cache", JSON.stringify(data.servers));
+        localStorage.setItem("vpng_servers_last_update", data.lastUpdated);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to verify backend server URL", err);
+      // Fallback: Save it anyway so developers can set local / private endpoints
+      localStorage.setItem("vpng_api_base_url", trimmed);
+      setApiBaseUrl(trimmed);
+      return true;
+    }
+  };
   
   // Theme state
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -96,7 +191,7 @@ export default function App() {
   useEffect(() => {
     const fetchInterval = async () => {
       try {
-        const response = await fetch("/api/settings/interval");
+        const response = await fetch(getApiUrl("/api/settings/interval"));
         const data = await response.json();
         if (data.status === "success" && typeof data.intervalMinutes === "number") {
           setBackgroundInterval(data.intervalMinutes);
@@ -106,11 +201,11 @@ export default function App() {
       }
     };
     fetchInterval();
-  }, []);
+  }, [apiBaseUrl]);
 
   const handleChangeBackgroundInterval = async (mins: number): Promise<boolean> => {
     try {
-      const response = await fetch("/api/settings/interval", {
+      const response = await fetch(getApiUrl("/api/settings/interval"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ intervalMinutes: mins })
@@ -172,12 +267,12 @@ export default function App() {
   // Fetch servers from the Express backend `/api/servers` on load
   useEffect(() => {
     fetchServers(false);
-  }, []);
+  }, [apiBaseUrl]);
 
   const fetchServers = async (forceRefresh = false) => {
     setIsRefreshing(true);
     try {
-      const url = `/api/servers${forceRefresh ? "?refresh=true" : ""}`;
+      const url = getApiUrl(`/api/servers${forceRefresh ? "?refresh=true" : ""}`);
       const response = await fetch(url);
       const data = await response.json();
       
@@ -202,6 +297,15 @@ export default function App() {
       if (cached) {
         setServers(JSON.parse(cached));
         setLastUpdated(cachedDate || new Date().toISOString());
+      } else {
+        // First-time load or fresh install on mobile/Capacitor: populate fallback servers
+        setServers(FRONTEND_FALLBACK_SERVERS);
+        setLastUpdated(new Date().toISOString());
+        localStorage.setItem("vpng_servers_cache", JSON.stringify(FRONTEND_FALLBACK_SERVERS));
+        localStorage.setItem("vpng_servers_last_update", new Date().toISOString());
+        if (!activeServer) {
+          setActiveServer(FRONTEND_FALLBACK_SERVERS[0]);
+        }
       }
     } finally {
       setIsRefreshing(false);
@@ -462,7 +566,7 @@ export default function App() {
   const handleTestServerSpeed = async (server: VpnServer) => {
     setTestingServers(prev => ({ ...prev, [server.IP]: true }));
     try {
-      const response = await fetch("/api/speedtest", {
+      const response = await fetch(getApiUrl("/api/speedtest"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ip: server.IP, hostName: server.HostName })
@@ -538,7 +642,7 @@ export default function App() {
     localStorage.removeItem("vpng_servers_cache");
     localStorage.removeItem("vpng_servers_last_update");
     try {
-      await fetch("/api/servers/clear", { method: "POST" });
+      await fetch(getApiUrl("/api/servers/clear"), { method: "POST" });
     } catch (err) {
       console.warn("Could not notify backend to clear database, done client-side.", err);
     }
@@ -735,6 +839,8 @@ export default function App() {
                 onClearDatabase={handleClearDatabase}
                 backgroundInterval={backgroundInterval}
                 onChangeBackgroundInterval={handleChangeBackgroundInterval}
+                apiBaseUrl={apiBaseUrl}
+                onChangeApiBaseUrl={handleChangeApiBaseUrl}
               />
             )}
           </motion.div>

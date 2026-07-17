@@ -117,6 +117,12 @@ export const translations = {
     harvestIntervalDesc: "مشخص کنید هر چند دقیقه یک‌بار، سرور اختصاصی کلاینت در پس‌زمینه به برداشت موازی اطلاعات سرورهای فعال جدید از تمامی منابع بپردازد تا بانک اطلاعاتی بزرگتر و کامل‌تری داشته باشید.",
     harvestIntervalSaveBtn: "ذخیره زمان‌بندی",
     harvestIntervalSuccess: "بازه زمانی به‌روزرسانی خودکار با موفقیت به {min} دقیقه تغییر یافت.",
+    apiBaseUrlLabel: "آدرس سرور API بک‌اند",
+    apiBaseUrlDesc: "برای دریافت لیست زنده و پویای سرورها در نسخه وب‌اپلیکیشن (مانند Capacitor)، آدرس سرور اصلی بک‌اند خود را (مثلاً https://example.com) وارد نمایید تا برنامه بتواند لیست آنلاین را دانلود کند.",
+    apiBaseUrlSaveBtn: "ذخیره آدرس سرور",
+    apiBaseUrlPlaceholder: "مانند: https://example.com",
+    apiBaseUrlSuccess: "آدرس سرور با موفقیت ثبت شد. لیست سرورها از این پس از این نشانی بروزرسانی می‌شود.",
+    apiBaseUrlError: "نشانی سرور نامعتبر است. فرمت صحیح را وارد نمایید.",
   },
   en: {
     dashboard: "Dashboard",
@@ -234,5 +240,11 @@ export const translations = {
     harvestIntervalDesc: "Configure the frequency in minutes at which the VpnG server background worker harvests and aggregates active servers in parallel across all mirrors to continually grow and refresh the cached pool.",
     harvestIntervalSaveBtn: "Save Schedule",
     harvestIntervalSuccess: "Background harvest interval updated to {min} minutes successfully.",
+    apiBaseUrlLabel: "Backend API Server URL",
+    apiBaseUrlDesc: "To fetch live and dynamic servers in hybrid web app builds (like Capacitor), configure your main deployed backend API server address (e.g. https://example.com) to download the online list.",
+    apiBaseUrlSaveBtn: "Save Server URL",
+    apiBaseUrlPlaceholder: "e.g., https://example.com",
+    apiBaseUrlSuccess: "API Server URL successfully updated. The client will now fetch live servers from this address.",
+    apiBaseUrlError: "Invalid Server URL format. Please enter a valid HTTP/HTTPS address.",
   }
 };

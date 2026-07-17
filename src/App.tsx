@@ -16,6 +16,14 @@ import { motion, AnimatePresence } from "motion/react";
 import { Key, Wifi } from "lucide-react";
 import { VpnGLogo } from "./components/VpnGLogo";
 import { translations } from "./lib/translations";
+import { 
+  isNativeVpnSupported, 
+  checkNativeVpnPermission, 
+  requestNativeVpnPermission, 
+  startNativeVpn, 
+  stopNativeVpn 
+} from "./lib/vpnBridge";
+
 
 const FRONTEND_FALLBACK_SERVERS: VpnServer[] = [
   {
@@ -315,10 +323,51 @@ export default function App() {
   const activeProfile = profiles.find(p => p.isActive) || profiles[0];
 
   // Dynamic connection logs handshaking simulations
-  const runHandshakeSimulation = () => {
+  const runHandshakeSimulation = async () => {
     setIsConnecting(true);
     setIsConnected(false);
     setConnectionLogs([]);
+
+    const hostIp = activeProfile.host || activeServer?.IP || "";
+    const portNum = activeProfile.port || 1194;
+    const configBase64 = activeServer?.OpenVPN_ConfigData_Base64 || "";
+
+    // If native platform is detected, start actual native VpnService!
+    if (isNativeVpnSupported()) {
+      setConnectionLogs(prev => [...prev, "VpnG: تشخیص سیستم‌عامل اندروید. در حال درخواست شروع سرویس VPN واقعی..."]);
+      try {
+        const hasPermission = await checkNativeVpnPermission();
+        if (!hasPermission) {
+          setConnectionLogs(prev => [...prev, "VpnG: در حال انتظار برای تایید مجوز سیستم‌عامل اندروید..."]);
+          const granted = await requestNativeVpnPermission();
+          if (!granted) {
+            setConnectionLogs(prev => [...prev, "خطا: دسترسی ایجاد تونل VPN توسط کاربر رد شد."]);
+            setIsConnecting(false);
+            return;
+          }
+        }
+
+        setConnectionLogs(prev => [...prev, `VpnG: ایجاد تونل امن به آدرس ${hostIp}:${portNum}...`]);
+        const status = await startNativeVpn(hostIp, portNum, configBase64);
+        
+        if (status === "need_permission") {
+          setConnectionLogs(prev => [...prev, "خطا: نیاز به تایید مجوز سیستم‌عامل اندروید."]);
+          setIsConnecting(false);
+          return;
+        }
+
+        setConnectionLogs(prev => [...prev, "VpnG: تونل شبکه (tun0) در اندروید با موفقیت ایجاد شد!"]);
+        setConnectionLogs(prev => [...prev, "کل ترافیک اینترنت دستگاه شما هم‌اکنون به این سرور هدایت می‌شود."]);
+        setIsConnecting(false);
+        setIsConnected(true);
+        startTrafficSimulation();
+        return;
+      } catch (err: any) {
+        setConnectionLogs(prev => [...prev, `خطا در برقراری ارتباط واقعی: ${err.message || err}`]);
+        setIsConnecting(false);
+        return;
+      }
+    }
 
     const steps = [
       { text: "VpnG: سوکت ارتباطی ایجاد شد. در حال مقداردهی اولیه...", delay: 0 },
@@ -374,9 +423,18 @@ export default function App() {
     }, 1000);
   };
 
-  const handleConnectToggle = () => {
+  const handleConnectToggle = async () => {
     if (isConnected) {
       // Disconnect
+      if (isNativeVpnSupported()) {
+        try {
+          await stopNativeVpn();
+          setConnectionLogs(prev => [...prev, "VpnG: دستور قطع اتصال واقعی به اندروید ارسال شد."]);
+        } catch (err: any) {
+          console.error("Failed to stop native VPN", err);
+        }
+      }
+
       if (trafficIntervalRef.current) {
         clearInterval(trafficIntervalRef.current);
         trafficIntervalRef.current = null;
@@ -385,12 +443,16 @@ export default function App() {
       setIsConnecting(false);
       setConnectionLogs(prev => [...prev, "VpnG: ارتباط توسط کاربر قطع گردید."]);
     } else {
-      const isGranted = localStorage.getItem("vpng_permission_granted") === "true";
-      if (!isGranted) {
-        setPermissionTarget("manual");
-        setShowVpnPermission(true);
-      } else {
+      if (isNativeVpnSupported()) {
         runHandshakeSimulation();
+      } else {
+        const isGranted = localStorage.getItem("vpng_permission_granted") === "true";
+        if (!isGranted) {
+          setPermissionTarget("manual");
+          setShowVpnPermission(true);
+        } else {
+          runHandshakeSimulation();
+        }
       }
     }
   };

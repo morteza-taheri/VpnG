@@ -9,6 +9,7 @@ interface ServerDetailsProps {
   onConnect: (server: VpnServer) => void;
   excludedAppsCount: number;
   theme: "dark" | "light";
+  language: "fa" | "en";
   onNavigateToSettings?: () => void;
 }
 
@@ -18,6 +19,7 @@ export const ServerDetails: React.FC<ServerDetailsProps> = ({
   onConnect,
   excludedAppsCount,
   theme,
+  language,
   onNavigateToSettings
 }) => {
   // Format speed into Mb/s exactly like the screenshot
@@ -155,60 +157,46 @@ export const ServerDetails: React.FC<ServerDetailsProps> = ({
         </div>
       </div>
 
-      {/* Connection trigger controls mimicking Screenshot 1 */}
-      <div className="p-5 border-t border-slate-100 dark:border-slate-800/50 flex flex-col items-center gap-3 bg-slate-50/50 dark:bg-slate-900/30">
+      {/* Connection trigger controls mimicking Screenshot 1 but simplified for real tunnel support */}
+      <div className="p-5 border-t border-slate-100 dark:border-slate-800/50 flex flex-col items-center gap-2.5 bg-slate-50/50 dark:bg-slate-900/30">
         
-        {/* Real system connection helper notice */}
-        {server.OpenVPN_ConfigData_Base64 ? (
-          <div className={`w-full p-3 rounded-2xl text-right space-y-2 border ${
-            theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200"
-          }`}>
-            <div className="flex items-center justify-between text-xs font-bold text-cyan-400">
-              <span className="font-sans">پروفایل OpenVPN آماده اتصال واقعی</span>
-              <Shield size={14} className="text-cyan-400" />
-            </div>
-            <p className="text-[10px] text-slate-400 leading-relaxed font-sans">
-              به دلیل محدودیت‌های دسترسی سیستم‌عامل اندروید در وب‌اپلیکیشن‌ها، برای ایجاد تونل VPN واقعی و انتقال ترافیک کل گوشی، فایل تنظیمات <span className="font-mono text-cyan-400">.ovpn</span> این سرور را دانلود کرده و در برنامه رایگان <strong className="text-slate-200">OpenVPN Connect</strong> باز کنید.
-            </p>
-            <button
-              onClick={handleDownloadOvpn}
-              className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-sans rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <Download size={13} />
-              دانلود فایل تنظیمات رسمی (.ovpn)
-            </button>
-          </div>
-        ) : (
-          <div className={`w-full p-3 rounded-2xl text-right space-y-1 border ${
-            theme === "dark" ? "bg-slate-950/80 border-slate-800" : "bg-white border-slate-200"
-          }`}>
-            <div className="flex items-center justify-between text-xs font-bold text-amber-500">
-              <span className="font-sans">پروتکل L2TP/IPSec</span>
-              <Shield size={14} />
-            </div>
-            <p className="text-[10px] text-slate-400 leading-relaxed font-sans">
-              برای استفاده واقعی، آدرس IP فوق <span className="font-mono text-amber-400">({server.IP})</span> را کپی کرده و در بخش VPN تنظیمات گوشی اندروید خود وارد نمایید (نام کاربری و کلمه عبور: <span className="font-mono text-amber-400">vpn</span>).
-            </p>
-          </div>
-        )}
-
+        {/* Main Connect Button */}
         <button
           onClick={() => onConnect(server)}
-          className="w-full max-w-xs py-3 bg-[#0D47A1] hover:bg-[#0b3c8a] active:scale-[0.99] text-white rounded-lg text-xs font-bold shadow-md shadow-blue-950/20 transition-all cursor-pointer flex items-center justify-center gap-2 font-sans"
+          className="w-full max-w-xs py-3.5 bg-[#0D47A1] hover:bg-[#0b3c8a] active:scale-[0.98] text-white rounded-2xl text-xs font-bold shadow-md shadow-blue-950/20 transition-all cursor-pointer flex items-center justify-center gap-2 font-sans"
           id="btn-connect-this-server"
         >
-          <Shield size={15} className="text-white" />
-          شبیه‌سازی اتصال در اپلیکیشن
+          <Shield size={16} className="text-white" />
+          {language === "fa" ? "برقراری ارتباط و ایجاد تونل" : "Establish Tunnel & Connect"}
         </button>
 
+        {/* Optional OpenVPN Configuration Download */}
+        {server.OpenVPN_ConfigData_Base64 && (
+          <button
+            onClick={handleDownloadOvpn}
+            className={`w-full max-w-xs py-2.5 border border-dashed text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+              theme === "dark" 
+                ? "border-slate-800 bg-slate-950/50 text-cyan-400 hover:bg-slate-900 hover:text-cyan-300" 
+                : "border-slate-200 bg-white text-cyan-600 hover:bg-slate-50 hover:text-cyan-700"
+            }`}
+          >
+            <Download size={13} />
+            {language === "fa" ? "دانلود فایل پیکربندی OpenVPN (اختیاری)" : "Download OpenVPN Config (Optional)"}
+          </button>
+        )}
+
         {/* Selective Tunneling indicator exactly as requested */}
-        <button
-          onClick={onNavigateToSettings}
-          className="text-[10px] font-bold text-[#0D47A1] dark:text-blue-400 hover:underline transition-all cursor-pointer font-sans"
-          id="btn-details-excluded-apps"
-        >
-          Excluding {excludedAppsCount} app(s) from VPN
-        </button>
+        {onNavigateToSettings && (
+          <button
+            onClick={onNavigateToSettings}
+            className="text-[10px] font-bold text-[#0D47A1] dark:text-blue-400 hover:underline transition-all cursor-pointer font-sans mt-1"
+            id="btn-details-excluded-apps"
+          >
+            {language === "fa" 
+              ? `عبور مستقیم ${excludedAppsCount} برنامه از تونل وی‌پی‌ان (App Filter)` 
+              : `Excluding ${excludedAppsCount} app(s) from VPN tunnel`}
+          </button>
+        )}
       </div>
 
     </div>

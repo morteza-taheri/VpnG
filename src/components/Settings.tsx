@@ -29,6 +29,13 @@ interface SettingsProps {
   onChangeApiBaseUrl: (url: string) => Promise<boolean>;
   csvFallbackUrl: string;
   onChangeCsvFallbackUrl: (url: string) => void;
+  customDnsEnabled: boolean;
+  onToggleCustomDns: () => void;
+  dnsPreset: string;
+  onChangeDnsPreset: (preset: string) => void;
+  dnsPrimary: string;
+  dnsSecondary: string;
+  onChangeCustomDnsIps: (primary: string, secondary: string) => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -51,8 +58,16 @@ export const Settings: React.FC<SettingsProps> = ({
   apiBaseUrl,
   onChangeApiBaseUrl,
   csvFallbackUrl,
-  onChangeCsvFallbackUrl
+  onChangeCsvFallbackUrl,
+  customDnsEnabled,
+  onToggleCustomDns,
+  dnsPreset,
+  onChangeDnsPreset,
+  dnsPrimary,
+  dnsSecondary,
+  onChangeCustomDnsIps
 }) => {
+  const t = translations[language];
   const [appSearch, setAppSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<"ALL" | "Social" | "Browser" | "Entertainment" | "Tools">("ALL");
   const [dbSuccessMessage, setDbSuccessMessage] = useState("");
@@ -70,6 +85,18 @@ export const Settings: React.FC<SettingsProps> = ({
   const [csvUrlInput, setCsvUrlInput] = useState(csvFallbackUrl);
   const [csvUrlSuccess, setCsvUrlSuccess] = useState("");
   const [csvUrlError, setCsvUrlError] = useState("");
+
+  const [primaryInput, setPrimaryInput] = useState(dnsPrimary);
+  const [secondaryInput, setSecondaryInput] = useState(dnsSecondary);
+  const [dnsSuccess, setDnsSuccess] = useState("");
+
+  useEffect(() => {
+    setPrimaryInput(dnsPrimary);
+  }, [dnsPrimary]);
+
+  useEffect(() => {
+    setSecondaryInput(dnsSecondary);
+  }, [dnsSecondary]);
 
   useEffect(() => {
     setIntervalInput(backgroundInterval.toString());
@@ -122,6 +149,32 @@ export const Settings: React.FC<SettingsProps> = ({
     }
   };
 
+  const dnsPresetsList = useMemo(() => [
+    { id: "cloudflare", name: "Cloudflare DNS", primary: "1.1.1.1", secondary: "1.0.0.1", desc: language === "fa" ? "سرعت عالی، پایداری بالا و حریم خصوصی برتر" : "Excellent speed, stability, and privacy" },
+    { id: "google", name: "Google Public DNS", primary: "8.8.8.8", secondary: "8.8.4.4", desc: language === "fa" ? "محبوب‌ترین دی‌ان‌اس دنیا با پایداری حداکثری" : "Worldwide popular DNS with maximum uptime" },
+    { id: "shecan", name: "Shecan / شکن", primary: "178.22.122.100", secondary: "185.51.200.2", desc: language === "fa" ? "بهترین گزینه برای عبور آزادانه از تحریم‌های اینترنتی خارجی" : "Top recommended for bypassing strict foreign developer sanctions" },
+    { id: "electro", name: "Electro / الکترو", primary: "78.157.108.10", secondary: "78.157.108.11", desc: language === "fa" ? "دور زدن تحریم سرویس‌های خارجی و بهبود پینگ بازی‌ها" : "Bypass developer restrictions & optimize gaming ping" },
+    { id: "adguard", name: "AdGuard DNS", primary: "94.140.14.14", secondary: "94.140.15.15", desc: language === "fa" ? "حذف خودکار تبلیغات آزاردهنده و ردیاب‌های وب" : "Block intrusive ads & trackers automatically" },
+    { id: "custom", name: t.dnsCustomOption, primary: dnsPrimary, secondary: dnsSecondary, desc: language === "fa" ? "وارد کردن دستی آی‌پی‌های دلخواه شما" : "Manually enter custom primary/secondary DNS IPs" }
+  ], [language, t, dnsPrimary, dnsSecondary]);
+
+  const handleSelectDnsPreset = (presetId: string) => {
+    onChangeDnsPreset(presetId);
+    const found = dnsPresetsList.find(p => p.id === presetId);
+    if (found && presetId !== "custom") {
+      setPrimaryInput(found.primary);
+      setSecondaryInput(found.secondary);
+      onChangeCustomDnsIps(found.primary, found.secondary);
+    }
+  };
+
+  const handleSaveCustomDns = (e: React.FormEvent) => {
+    e.preventDefault();
+    onChangeCustomDnsIps(primaryInput.trim(), secondaryInput.trim());
+    setDnsSuccess(t.dnsSuccessSave || "تنظیمات دی‌ان‌اس با موفقیت اعمال شد.");
+    setTimeout(() => setDnsSuccess(""), 4000);
+  };
+
   const handleSaveInterval = async (e: React.FormEvent) => {
     e.preventDefault();
     setIntervalError("");
@@ -142,8 +195,6 @@ export const Settings: React.FC<SettingsProps> = ({
       setIntervalError(language === "fa" ? "خطا در برقراری ارتباط با سرور." : "Failed to connect to the server.");
     }
   };
-
-  const t = translations[language];
 
   const protocolList = useMemo(() => {
     return [
@@ -440,6 +491,153 @@ export const Settings: React.FC<SettingsProps> = ({
             />
           </button>
         </div>
+      </div>
+
+      {/* Custom DNS Configuration */}
+      <div className={`p-5 rounded-3xl transition-all duration-300 ${
+        customDnsEnabled
+          ? "border border-cyan-500/30 bg-cyan-500/[0.02]"
+          : theme === "dark"
+          ? "bg-slate-900/60 border border-slate-800/80"
+          : "bg-white border border-slate-100 shadow-sm"
+      } space-y-4`}>
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"} flex items-center gap-2`}>
+              <Shield size={15} className="text-cyan-400" />
+              {t.customDns}
+            </h3>
+            <p className="text-[10px] text-slate-500 leading-relaxed max-w-sm">
+              {t.customDnsDesc}
+            </p>
+          </div>
+
+          <button
+            onClick={onToggleCustomDns}
+            className={`w-14 h-7 rounded-full p-1 transition-all duration-300 relative cursor-pointer flex-shrink-0 ${
+              customDnsEnabled ? "bg-cyan-500/20 border border-cyan-500/30" : "bg-slate-200"
+            }`}
+          >
+            <motion.div
+              layout
+              className={`w-5 h-5 rounded-full flex items-center justify-center shadow-md ${
+                customDnsEnabled ? "bg-cyan-400 ml-auto" : "bg-white"
+              }`}
+            />
+          </button>
+        </div>
+
+        {customDnsEnabled && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="space-y-4 pt-1 overflow-hidden"
+          >
+            {/* DNS presets label */}
+            <div className="space-y-1">
+              <label className={`text-[10px] font-bold ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
+                {t.dnsPresetLabel}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {dnsPresetsList.map((preset) => {
+                  const isPresetSelected = dnsPreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectDnsPreset(preset.id)}
+                      className={`p-3 rounded-2xl border text-right transition-all duration-200 cursor-pointer ${
+                        isPresetSelected
+                          ? theme === "dark"
+                            ? "bg-cyan-500/10 border-cyan-500/60 text-cyan-400"
+                            : "bg-cyan-50 border-cyan-500/50 text-cyan-700"
+                          : theme === "dark"
+                          ? "bg-slate-950/40 border-slate-800/80 text-slate-300 hover:border-slate-700 hover:bg-slate-900/20"
+                          : "bg-slate-50/50 border-slate-150 text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold">{preset.name}</span>
+                        {preset.primary && (
+                          <span className="font-mono text-[8px] opacity-70">
+                            {preset.primary}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[8px] text-slate-500 mt-1 leading-relaxed">
+                        {preset.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Manual input fields */}
+            <form onSubmit={handleSaveCustomDns} className="space-y-3.5 pt-1 border-t border-slate-500/10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] text-slate-500 font-bold block">
+                    {t.dnsPrimaryLabel}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={dnsPreset !== "custom"}
+                    value={primaryInput}
+                    onChange={(e) => setPrimaryInput(e.target.value)}
+                    placeholder="e.g. 1.1.1.1"
+                    className={`w-full px-3 py-2 rounded-xl text-[10px] font-mono outline-none border ${
+                      dnsPreset !== "custom"
+                        ? "bg-slate-500/5 border-slate-500/10 text-slate-500"
+                        : theme === "dark"
+                        ? "bg-slate-950 border-slate-800 text-slate-100 focus:border-cyan-500/40"
+                        : "bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-500/40"
+                    }`}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] text-slate-500 font-bold block">
+                    {t.dnsSecondaryLabel}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={dnsPreset !== "custom"}
+                    value={secondaryInput}
+                    onChange={(e) => setSecondaryInput(e.target.value)}
+                    placeholder="e.g. 1.0.0.1"
+                    className={`w-full px-3 py-2 rounded-xl text-[10px] font-mono outline-none border ${
+                      dnsPreset !== "custom"
+                        ? "bg-slate-500/5 border-slate-500/10 text-slate-500"
+                        : theme === "dark"
+                        ? "bg-slate-950 border-slate-800 text-slate-100 focus:border-cyan-500/40"
+                        : "bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-500/40"
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {dnsPreset === "custom" && (
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 active:scale-[0.98] text-slate-950 font-bold rounded-xl text-[10px] transition-all cursor-pointer"
+                  >
+                    {language === "fa" ? "ذخیره دی‌ان‌اس اختصاصی" : "Save Custom DNS"}
+                  </button>
+                </div>
+              )}
+
+              {dnsSuccess && (
+                <p className="text-[9px] text-emerald-500 font-bold animate-pulse text-right">
+                  ✓ {dnsSuccess}
+                </p>
+              )}
+            </form>
+          </motion.div>
+        )}
       </div>
 
       {/* App Filter (Selective Tunneling) */}

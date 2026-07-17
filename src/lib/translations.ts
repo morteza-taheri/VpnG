@@ -129,6 +129,13 @@ export const translations = {
     csvFallbackUrlSaveBtn: "ذخیره آدرس پشتیبان",
     csvFallbackUrlSuccess: "آدرس پشتیبان CSV با موفقیت ذخیره شد.",
     csvFallbackUrlError: "فرمت آدرس معتبر نیست.",
+    customDns: "استفاده از DNS دلخواه (Custom DNS)",
+    customDnsDesc: "آدرس سرورهای DNS گوشی را جهت عبور راحت‌تر از تحریم‌ها، فیلترینگ یا افزایش سرعت تغییر دهید.",
+    dnsPresetLabel: "انتخاب سرور DNS پیشنهادی",
+    dnsPrimaryLabel: "آدرس DNS اصلی (Primary)",
+    dnsSecondaryLabel: "آدرس DNS کمکی (Secondary)",
+    dnsCustomOption: "تنظیمات دستی (سفارشی)",
+    dnsSuccessSave: "تنظیمات DNS دلخواه با موفقیت اعمال گردید.",
   },
   en: {
     dashboard: "Dashboard",
@@ -258,5 +265,12 @@ export const translations = {
     csvFallbackUrlSaveBtn: "Save Backup URL",
     csvFallbackUrlSuccess: "Backup CSV URL updated successfully.",
     csvFallbackUrlError: "Invalid URL format. Please check the address.",
+    customDns: "Custom DNS Server",
+    customDnsDesc: "Change your DNS settings to improve internet speed, privacy, or bypass country-specific sanctions and geo-blocks.",
+    dnsPresetLabel: "Select Recommended DNS Server",
+    dnsPrimaryLabel: "Primary DNS Address",
+    dnsSecondaryLabel: "Secondary DNS Address",
+    dnsCustomOption: "Manual Configuration (Custom)",
+    dnsSuccessSave: "Custom DNS settings applied successfully.",
   }
 };

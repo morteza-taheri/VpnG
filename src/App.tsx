@@ -205,6 +205,36 @@ export default function App() {
     return (localStorage.getItem("vpng_default_protocol") as SelectorProtocol | "SMART_CONNECT") || "SOFETHER_TCP";
   });
 
+  // Custom DNS settings states
+  const [customDnsEnabled, setCustomDnsEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("vpng_custom_dns_enabled") === "true";
+  });
+  const [dnsPreset, setDnsPreset] = useState<string>(() => {
+    return localStorage.getItem("vpng_dns_preset") || "cloudflare";
+  });
+  const [dnsPrimary, setDnsPrimary] = useState<string>(() => {
+    return localStorage.getItem("vpng_dns_primary") || "1.1.1.1";
+  });
+  const [dnsSecondary, setDnsSecondary] = useState<string>(() => {
+    return localStorage.getItem("vpng_dns_secondary") || "1.0.0.1";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("vpng_custom_dns_enabled", customDnsEnabled ? "true" : "false");
+  }, [customDnsEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("vpng_dns_preset", dnsPreset);
+  }, [dnsPreset]);
+
+  useEffect(() => {
+    localStorage.setItem("vpng_dns_primary", dnsPrimary);
+  }, [dnsPrimary]);
+
+  useEffect(() => {
+    localStorage.setItem("vpng_dns_secondary", dnsSecondary);
+  }, [dnsSecondary]);
+
   // Background Harvest Update worker interval state (Configurable!)
   const [backgroundInterval, setBackgroundInterval] = useState<number>(15);
 
@@ -882,6 +912,7 @@ export default function App() {
                   onConnect={handleConnectFromDetails}
                   excludedAppsCount={appFilters.filter(a => a.bypassVpn).length}
                   theme={theme}
+                  language={language}
                   onNavigateToSettings={() => {
                     setActiveTab("settings");
                   }}
@@ -942,6 +973,16 @@ export default function App() {
                 onChangeApiBaseUrl={handleChangeApiBaseUrl}
                 csvFallbackUrl={csvFallbackUrl}
                 onChangeCsvFallbackUrl={setCsvFallbackUrl}
+                customDnsEnabled={customDnsEnabled}
+                onToggleCustomDns={() => setCustomDnsEnabled(!customDnsEnabled)}
+                dnsPreset={dnsPreset}
+                onChangeDnsPreset={setDnsPreset}
+                dnsPrimary={dnsPrimary}
+                dnsSecondary={dnsSecondary}
+                onChangeCustomDnsIps={(prim, sec) => {
+                  setDnsPrimary(prim);
+                  setDnsSecondary(sec);
+                }}
               />
             )}
           </motion.div>

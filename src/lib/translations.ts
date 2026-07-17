@@ -123,6 +123,12 @@ export const translations = {
     apiBaseUrlPlaceholder: "مانند: https://example.com",
     apiBaseUrlSuccess: "آدرس سرور با موفقیت ثبت شد. لیست سرورها از این پس از این نشانی بروزرسانی می‌شود.",
     apiBaseUrlError: "نشانی سرور نامعتبر است. فرمت صحیح را وارد نمایید.",
+    csvFallbackUrlLabel: "آدرس گیت‌هاب / پشتیبان فایل CSV سرورها (Servers.csv)",
+    csvFallbackUrlDesc: "در صورتی که سرور API بک‌اند شما فیلتر یا از دسترس خارج شود، برنامه به صورت خودکار و غیرمتمرکز اطلاعات سرورها را از این فایل در گیت‌هاب دانلود کرده و پارس می‌کند. این کار پایداری ۱۰۰٪ برنامه را تضمین می‌کند.",
+    csvFallbackUrlPlaceholder: "مانند: https://raw.githubusercontent.com/user/repo/main/servers.csv",
+    csvFallbackUrlSaveBtn: "ذخیره آدرس پشتیبان",
+    csvFallbackUrlSuccess: "آدرس پشتیبان CSV با موفقیت ذخیره شد.",
+    csvFallbackUrlError: "فرمت آدرس معتبر نیست.",
   },
   en: {
     dashboard: "Dashboard",
@@ -246,5 +252,11 @@ export const translations = {
     apiBaseUrlPlaceholder: "e.g., https://example.com",
     apiBaseUrlSuccess: "API Server URL successfully updated. The client will now fetch live servers from this address.",
     apiBaseUrlError: "Invalid Server URL format. Please enter a valid HTTP/HTTPS address.",
+    csvFallbackUrlLabel: "GitHub / Backup CSV URL (Servers.csv)",
+    csvFallbackUrlDesc: "If your backend VPS API becomes blocked or unreachable, the application will automatically pull and parse the dynamic server list directly from this GitHub raw file, guaranteeing 100% decentralized uptime.",
+    csvFallbackUrlPlaceholder: "e.g., https://raw.githubusercontent.com/user/repo/main/servers.csv",
+    csvFallbackUrlSaveBtn: "Save Backup URL",
+    csvFallbackUrlSuccess: "Backup CSV URL updated successfully.",
+    csvFallbackUrlError: "Invalid URL format. Please check the address.",
   }
 };

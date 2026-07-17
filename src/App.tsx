@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Key, Wifi } from "lucide-react";
 import { VpnGLogo } from "./components/VpnGLogo";
 import { translations } from "./lib/translations";
+import { parseVpnGateCSV } from "./lib/csvParser";
 import { 
   isNativeVpnSupported, 
   checkNativeVpnPermission, 
@@ -87,6 +88,16 @@ export default function App() {
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(() => {
     return localStorage.getItem("vpng_api_base_url") || "";
   });
+
+  // GitHub Fallback CSV URL configuration
+  const [csvFallbackUrl, setCsvFallbackUrl] = useState<string>(() => {
+    return localStorage.getItem("vpng_csv_fallback_url") || "https://raw.githubusercontent.com/morteza-taheri/VpnG/main/servers.csv";
+  });
+
+  // Save csvFallbackUrl to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("vpng_csv_fallback_url", csvFallbackUrl);
+  }, [csvFallbackUrl]);
 
   const getApiUrl = (path: string) => {
     if (!apiBaseUrl) return path;
@@ -298,7 +309,27 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.error("Failed to fetch servers from API, loading offline database cache...", err);
+      console.warn("Failed to fetch servers from VPS API. Attempting GitHub/Custom CSV backup fallback...", err);
+      try {
+        const fallbackRes = await fetch(csvFallbackUrl);
+        const csvText = await fallbackRes.text();
+        const parsed = parseVpnGateCSV(csvText);
+        if (parsed && parsed.length > 0) {
+          setServers(parsed);
+          setLastUpdated(new Date().toISOString());
+          localStorage.setItem("vpng_servers_cache", JSON.stringify(parsed));
+          localStorage.setItem("vpng_servers_last_update", new Date().toISOString());
+          if (!activeServer && parsed.length > 0) {
+            setActiveServer(parsed[0]);
+          }
+          console.log(`[VpnG] Successfully restored ${parsed.length} servers from GitHub CSV Fallback!`);
+          setIsRefreshing(false);
+          return;
+        }
+      } catch (backupErr) {
+        console.error("GitHub/Custom CSV fallback failed as well:", backupErr);
+      }
+
       // Fallback offline database
       const cached = localStorage.getItem("vpng_servers_cache");
       const cachedDate = localStorage.getItem("vpng_servers_last_update");
@@ -903,6 +934,8 @@ export default function App() {
                 onChangeBackgroundInterval={handleChangeBackgroundInterval}
                 apiBaseUrl={apiBaseUrl}
                 onChangeApiBaseUrl={handleChangeApiBaseUrl}
+                csvFallbackUrl={csvFallbackUrl}
+                onChangeCsvFallbackUrl={setCsvFallbackUrl}
               />
             )}
           </motion.div>

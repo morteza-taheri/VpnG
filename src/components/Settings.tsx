@@ -27,6 +27,8 @@ interface SettingsProps {
   onChangeBackgroundInterval: (mins: number) => Promise<boolean>;
   apiBaseUrl: string;
   onChangeApiBaseUrl: (url: string) => Promise<boolean>;
+  csvFallbackUrl: string;
+  onChangeCsvFallbackUrl: (url: string) => void;
 }
 
 export const Settings: React.FC<SettingsProps> = ({
@@ -47,7 +49,9 @@ export const Settings: React.FC<SettingsProps> = ({
   backgroundInterval,
   onChangeBackgroundInterval,
   apiBaseUrl,
-  onChangeApiBaseUrl
+  onChangeApiBaseUrl,
+  csvFallbackUrl,
+  onChangeCsvFallbackUrl
 }) => {
   const [appSearch, setAppSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<"ALL" | "Social" | "Browser" | "Entertainment" | "Tools">("ALL");
@@ -63,6 +67,10 @@ export const Settings: React.FC<SettingsProps> = ({
   const [apiUrlError, setApiUrlError] = useState("");
   const [isSavingApiUrl, setIsSavingApiUrl] = useState(false);
 
+  const [csvUrlInput, setCsvUrlInput] = useState(csvFallbackUrl);
+  const [csvUrlSuccess, setCsvUrlSuccess] = useState("");
+  const [csvUrlError, setCsvUrlError] = useState("");
+
   useEffect(() => {
     setIntervalInput(backgroundInterval.toString());
   }, [backgroundInterval]);
@@ -70,6 +78,26 @@ export const Settings: React.FC<SettingsProps> = ({
   useEffect(() => {
     setApiUrlInput(apiBaseUrl);
   }, [apiBaseUrl]);
+
+  useEffect(() => {
+    setCsvUrlInput(csvFallbackUrl);
+  }, [csvFallbackUrl]);
+
+  const handleSaveCsvUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCsvUrlError("");
+    setCsvUrlSuccess("");
+
+    const trimmed = csvUrlInput.trim();
+    if (trimmed !== "" && !/^https?:\/\//i.test(trimmed)) {
+      setCsvUrlError(t.csvFallbackUrlError || "فرمت آدرس معتبر نیست.");
+      return;
+    }
+
+    onChangeCsvFallbackUrl(trimmed);
+    setCsvUrlSuccess(t.csvFallbackUrlSuccess || "آدرس پشتیبان CSV با موفقیت ذخیره شد.");
+    setTimeout(() => setCsvUrlSuccess(""), 4000);
+  };
 
   const handleSaveApiUrl = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -630,6 +658,51 @@ export const Settings: React.FC<SettingsProps> = ({
         )}
         {apiUrlError && (
           <p className="text-[10px] text-rose-500 font-bold text-right sm:text-left">{apiUrlError}</p>
+        )}
+      </div>
+
+      {/* GitHub/Custom CSV Backup URL Settings */}
+      <div className={`p-5 rounded-3xl ${
+        theme === "dark" ? "bg-slate-900/60 border border-slate-800/80" : "bg-white border border-slate-100 shadow-sm"
+      } space-y-4`}>
+        <div className="space-y-1">
+          <h3 className={`text-xs font-bold ${theme === "dark" ? "text-slate-200" : "text-slate-800"} flex items-center gap-2`}>
+            <Layers size={15} className="text-indigo-400" />
+            {t.csvFallbackUrlLabel}
+          </h3>
+          <p className="text-[10px] text-slate-500 leading-relaxed text-right sm:text-left">
+            {t.csvFallbackUrlDesc}
+          </p>
+        </div>
+
+        <form onSubmit={handleSaveCsvUrl} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder={t.csvFallbackUrlPlaceholder}
+              value={csvUrlInput}
+              onChange={(e) => setCsvUrlInput(e.target.value)}
+              className={`w-full px-4 py-2.5 rounded-xl text-[11px] outline-none border font-sans text-left ltr ${
+                theme === "dark" 
+                  ? "bg-slate-950 border-slate-800 text-slate-100 focus:border-cyan-500/40" 
+                  : "bg-slate-50 border-slate-200 text-slate-800 focus:border-cyan-500/40"
+              }`}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-[10px] font-bold transition-all duration-150 cursor-pointer text-center whitespace-nowrap shrink-0"
+          >
+            {t.csvFallbackUrlSaveBtn}
+          </button>
+        </form>
+
+        {csvUrlSuccess && (
+          <p className="text-[10px] text-emerald-500 font-bold animate-pulse text-right sm:text-left">{csvUrlSuccess}</p>
+        )}
+        {csvUrlError && (
+          <p className="text-[10px] text-rose-500 font-bold text-right sm:text-left">{csvUrlError}</p>
         )}
       </div>
 

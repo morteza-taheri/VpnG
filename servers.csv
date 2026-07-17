@@ -1,0 +1,4 @@
+#HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnConnections,Operator,Message,OpenVPN_ConfigData_Base64,L2TP_IPsec,MS-SSTP,OpenVPN,CreatedAt
+vg132.vpngate.net,219.100.37.245,1253450,12,87400000,Japan,JP,452,VPNGate Operator JP-1,High-speed academic server located in Tokyo Japan.,,1,1,1,2026-07-17T00:00:00.000Z
+vg042.vpngate.net,185.220.101.4,984500,35,45200000,Germany,DE,189,VPNGate Operator DE-5,Secure server in Frankfurt support all protocols.,,1,0,1,2026-07-17T00:00:00.000Z
+vg205.vpngate.net,103.208.220.154,843200,42,38100000,South Korea,KR,94,VPNGate Academic KR,Seoul backbone server with ultra-stable ping.,,0,1,1,2026-07-17T00:00:00.000Z

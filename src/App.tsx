@@ -750,68 +750,70 @@ export default function App() {
         : "bg-slate-50 text-slate-800 selection:bg-emerald-500/20"
     } font-sans pb-24 ${language === "fa" ? "rtl" : "ltr"}`} dir={language === "fa" ? "rtl" : "ltr"}>
       
-      {/* Real-time Android Status Bar mimicking Screenshots */}
-      <div className={`w-full h-7 px-4.5 flex items-center justify-between text-[11px] font-sans tracking-wide border-b select-none ${
-        theme === "dark" 
-          ? "bg-slate-950 border-slate-900/60 text-slate-400" 
-          : "bg-slate-100 border-slate-200 text-slate-600"
-      }`} dir="ltr">
-        {/* Left Side: Time, Traffic Speed, Key/VPN indicator */}
-        <div className="flex items-center gap-2 font-medium">
-          {/* Time display */}
-          <span className="font-semibold">{currentTime || "16:23"}</span>
-          
-          <span className="text-slate-500/30">|</span>
-          
-          {/* Traffic speed indicator */}
-          <div className="flex items-center font-mono text-[10px]">
-            {isConnected ? (
-              <span>{trafficHistory.length > 0 ? (trafficHistory[trafficHistory.length - 1].download).toFixed(1) : "0.6"}KB/s</span>
-            ) : (
-              <span>0.0KB/s</span>
+      {/* Real-time Android Status Bar mimicking Screenshots (Only visible in web browser/preview, hidden on real Android device) */}
+      {!isNativeVpnSupported() && (
+        <div className={`w-full h-7 px-4.5 flex items-center justify-between text-[11px] font-sans tracking-wide border-b select-none ${
+          theme === "dark" 
+            ? "bg-slate-950 border-slate-900/60 text-slate-400" 
+            : "bg-slate-100 border-slate-200 text-slate-600"
+        }`} dir="ltr">
+          {/* Left Side: Time, Traffic Speed, Key/VPN indicator */}
+          <div className="flex items-center gap-2 font-medium">
+            {/* Time display */}
+            <span className="font-semibold">{currentTime || "16:23"}</span>
+            
+            <span className="text-slate-500/30">|</span>
+            
+            {/* Traffic speed indicator */}
+            <div className="flex items-center font-mono text-[10px]">
+              {isConnected ? (
+                <span>{trafficHistory.length > 0 ? (trafficHistory[trafficHistory.length - 1].download).toFixed(1) : "0.6"}KB/s</span>
+              ) : (
+                <span>0.0KB/s</span>
+              )}
+            </div>
+
+            {/* Key / VPN Icon - SHOW ONLY IF CONNECTED (AS REQUESTED!) */}
+            {isConnected && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-md font-sans text-[8px] font-bold animate-pulse"
+              >
+                <Key size={8} className="stroke-[3.5]" />
+                <span>VPN</span>
+              </motion.div>
             )}
           </div>
 
-          {/* Key / VPN Icon - SHOW ONLY IF CONNECTED (AS REQUESTED!) */}
-          {isConnected && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-md font-sans text-[8px] font-bold animate-pulse"
-            >
-              <Key size={8} className="stroke-[3.5]" />
-              <span>VPN</span>
-            </motion.div>
-          )}
-        </div>
+          {/* Right Side: Network, Wi-Fi, Battery */}
+          <div className="flex items-center gap-1.5">
+            {/* Signal Bar Icons using standard styled inline SVG */}
+            <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor" className="opacity-80">
+              <rect x="0" y="8" width="2" height="2" rx="0.5" />
+              <rect x="3" y="6" width="2" height="4" rx="0.5" />
+              <rect x="6" y="4" width="2" height="6" rx="0.5" />
+              <rect x="9" y="2" width="2" height="8" rx="0.5" />
+              <rect x="12" y="0" width="2" height="10" rx="0.5" />
+            </svg>
 
-        {/* Right Side: Network, Wi-Fi, Battery */}
-        <div className="flex items-center gap-1.5">
-          {/* Signal Bar Icons using standard styled inline SVG */}
-          <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor" className="opacity-80">
-            <rect x="0" y="8" width="2" height="2" rx="0.5" />
-            <rect x="3" y="6" width="2" height="4" rx="0.5" />
-            <rect x="6" y="4" width="2" height="6" rx="0.5" />
-            <rect x="9" y="2" width="2" height="8" rx="0.5" />
-            <rect x="12" y="0" width="2" height="10" rx="0.5" />
-          </svg>
+            {/* Wifi Icon */}
+            <Wifi size={11} className="opacity-80" />
 
-          {/* Wifi Icon */}
-          <Wifi size={11} className="opacity-80" />
-
-          {/* Battery pill exactly as Screenshot 1 (shows 55 inside a rounded block with lightning bolt next to it) */}
-          <div className="flex items-center gap-0.5">
-            <div className={`px-1 rounded-md text-[9px] font-bold border flex items-center justify-center h-4.5 ${
-              theme === "dark" 
-                ? "bg-slate-900 border-slate-850 text-slate-300" 
-                : "bg-white border-slate-250 text-slate-700"
-            }`}>
-              55
+            {/* Battery pill exactly as Screenshot 1 (shows 55 inside a rounded block with lightning bolt next to it) */}
+            <div className="flex items-center gap-0.5">
+              <div className={`px-1 rounded-md text-[9px] font-bold border flex items-center justify-center h-4.5 ${
+                theme === "dark" 
+                  ? "bg-slate-900 border-slate-850 text-slate-300" 
+                  : "bg-white border-slate-250 text-slate-700"
+              }`}>
+                55
+              </div>
+              <span className="text-emerald-500 text-[10px] animate-pulse">⚡</span>
             </div>
-            <span className="text-emerald-500 text-[10px] animate-pulse">⚡</span>
           </div>
         </div>
-      </div>
+      )}
       
       {/* Top Application Bar */}
       <header className={`sticky top-0 z-50 px-4 py-4 border-b backdrop-blur-md flex items-center justify-between ${

@@ -33,8 +33,10 @@ for (const [filename, sourcePath] of Object.entries(sourceFiles)) {
     }
 }
 
-// 2. Patch MainActivity.kt to register VpnBridgePlugin
+// 2. Patch MainActivity to register VpnBridgePlugin
 const mainActivityPath = path.join(androidDir, 'app/src/main/java/com/vpng/client/MainActivity.kt');
+const mainActivityJavaPath = path.join(androidDir, 'app/src/main/java/com/vpng/client/MainActivity.java');
+
 if (fs.existsSync(mainActivityPath)) {
     let content = fs.readFileSync(mainActivityPath, 'utf8');
     
@@ -70,8 +72,36 @@ if (fs.existsSync(mainActivityPath)) {
     } else {
         console.log("[~] MainActivity.kt already contains VpnBridgePlugin registration.");
     }
+} else if (fs.existsSync(mainActivityJavaPath)) {
+    let content = fs.readFileSync(mainActivityJavaPath, 'utf8');
+    
+    // Check if import and registration are already added
+    if (!content.includes('VpnBridgePlugin')) {
+        console.log("[+] Patching MainActivity.java to register VpnBridgePlugin...");
+        
+        // Add required imports
+        content = content.replace(
+            "import com.getcapacitor.BridgeActivity;",
+            "import android.os.Bundle;\nimport com.getcapacitor.BridgeActivity;\nimport com.vpng.client.vpn.VpnBridgePlugin;"
+        );
+
+        // Add onCreate and register the plugin
+        const registerCode = ` {\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(VpnBridgePlugin.class);\n        super.onCreate(savedInstanceState);\n    }\n}`;
+        
+        // Replace either standard empty class body or default braces
+        if (content.includes('public class MainActivity extends BridgeActivity {}')) {
+            content = content.replace('public class MainActivity extends BridgeActivity {}', `public class MainActivity extends BridgeActivity${registerCode}`);
+        } else if (content.includes('public class MainActivity extends BridgeActivity')) {
+            content = content.replace('public class MainActivity extends BridgeActivity', `public class MainActivity extends BridgeActivity${registerCode}`);
+        }
+        
+        fs.writeFileSync(mainActivityJavaPath, content, 'utf8');
+        console.log("[+] MainActivity.java successfully patched.");
+    } else {
+        console.log("[~] MainActivity.java already contains VpnBridgePlugin registration.");
+    }
 } else {
-    console.error(`[!] Error: MainActivity.kt not found at ${mainActivityPath}`);
+    console.warn(`[!] Warning: Neither MainActivity.kt nor MainActivity.java was found under android/app/src/main/java/com/vpng/client/`);
 }
 
 // 3. Patch AndroidManifest.xml to register MyVpnService

@@ -171,6 +171,24 @@ function parseVPNGateCSV(csvText: string): any[] {
   return parsedServers;
 }
 
+// Function to load the local fallback servers.csv file
+function loadLocalCSVBackup(): any[] {
+  try {
+    const csvPath = path.join(process.cwd(), "servers.csv");
+    if (fs.existsSync(csvPath)) {
+      const text = fs.readFileSync(csvPath, "utf8");
+      const parsed = parseVPNGateCSV(text);
+      if (parsed && parsed.length > 0) {
+        console.log(`[VpnG Server] Successfully loaded ${parsed.length} servers from local servers.csv`);
+        return parsed;
+      }
+    }
+  } catch (err: any) {
+    console.error("[VpnG Server] Failed to load local servers.csv fallback:", err.message);
+  }
+  return [];
+}
+
 // Function to parse HTML from VPNGate using cheerio (highly robust and language-independent)
 function parseVPNGateHTML(htmlText: string): any[] {
   const $ = cheerio.load(htmlText);
@@ -522,7 +540,16 @@ async function fetchFromVPNGateWithBackups(): Promise<{ servers: any[]; source: 
     };
   }
 
-  throw new Error("All parallel VPNGate URLs failed to return any server data.");
+  // Gracefully fallback to local servers.csv on failure
+  const localBackup = loadLocalCSVBackup();
+  if (localBackup.length > 0) {
+    return {
+      servers: localBackup,
+      source: "Local Backup CSV (servers.csv)"
+    };
+  }
+
+  throw new Error("All parallel VPNGate URLs failed and local servers.csv fallback is empty.");
 }
 
 // Memory-based Accumulation Cache and Expiration Manager
@@ -750,6 +777,16 @@ async function startServer() {
     });
   }
 
+  // Populate cache immediately with local servers.csv first!
+  const localBackup = loadLocalCSVBackup();
+  if (localBackup.length > 0) {
+    cachedServers = localBackup;
+    lastUpdatedTime = new Date().toISOString();
+    console.log(`[VpnG Server] Seeded cache immediately with ${cachedServers.length} local fallback servers.`);
+  } else {
+    cachedServers = [...DEFAULT_FALLBACK_SERVERS];
+  }
+
   // Trigger initial high-volume background fetch on startup to populate cache instantly!
   console.log("[VpnG Server] Triggering initial background harvest on startup...");
   fetchFromVPNGateWithBackups().then(({ servers, source }) => {
@@ -757,7 +794,7 @@ async function startServer() {
     lastUpdatedTime = new Date().toISOString();
     console.log(`[VpnG Server] Initial harvest completed successfully! Collected ${cachedServers.length} unique active servers.`);
   }).catch((err) => {
-    console.log(`[VpnG Server] Initial startup check completed.`);
+    console.log(`[VpnG Server] Initial startup check completed. Loaded local servers.csv as active set.`);
   });
 
   // Scheduled Background Update Worker - dynamically configurable

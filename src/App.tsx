@@ -91,7 +91,11 @@ export default function App() {
 
   // GitHub Fallback CSV URL configuration
   const [csvFallbackUrl, setCsvFallbackUrl] = useState<string>(() => {
-    return localStorage.getItem("vpng_csv_fallback_url") || "https://raw.githubusercontent.com/morteza-taheri/VpnG/main/servers.csv";
+    const stored = localStorage.getItem("vpng_csv_fallback_url");
+    if (!stored || stored === "https://raw.githubusercontent.com/morteza-taheri/VpnG/main/servers.csv") {
+      return "https://raw.githubusercontent.com/morteza-taheri/VpnG/refs/heads/main/servers.csv";
+    }
+    return stored;
   });
 
   // Save csvFallbackUrl to localStorage whenever it changes

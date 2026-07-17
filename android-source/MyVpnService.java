@@ -81,7 +81,7 @@ public class MyVpnService extends VpnService implements Runnable {
             Builder builder = new Builder()
                 .setSession("VpnG Secure Tunnel")
                 .addAddress("10.8.0.2", 32)      // Internal VPN IP
-                .addRoute("0.0.0.0", 0)         // Route all IPv4 traffic through the VPN
+                .addRoute("10.8.0.0", 24)        // Split Tunnel Mode: Route only internal VPN subnet, keeping public internet alive!
                 .addDnsServer("8.8.8.8")        // Secure Google DNS
                 .addDnsServer("1.1.1.1")        // Cloudflare DNS
                 .setMtu(1500);

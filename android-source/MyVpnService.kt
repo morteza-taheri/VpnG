@@ -18,6 +18,13 @@ class MyVpnService : VpnService(), Runnable {
     private var vpnThread: Thread? = null
     private var vpnInterface: ParcelFileDescriptor? = null
 
+    // Connection parameters
+    private var serverIp: String = ""
+    private var serverPort: Int = 1194
+    private var protocol: String = "SoftEther"
+    private var username: String = ""
+    private var hubName: String = ""
+
     companion object {
         const val TAG = "VpnG_Service"
         const val ACTION_CONNECT = "com.vpng.client.START"
@@ -32,11 +39,13 @@ class MyVpnService : VpnService(), Runnable {
         if (intent != null) {
             when (intent.action) {
                 ACTION_CONNECT -> {
-                    val serverIp = intent.getStringExtra(EXTRA_SERVER_IP) ?: ""
-                    val serverPort = intent.getIntExtra(EXTRA_SERVER_PORT, 1194)
-                    val ovpnConfig = intent.getStringExtra(EXTRA_OVPN_CONFIG) ?: ""
+                    serverIp = intent.getStringExtra(EXTRA_SERVER_IP) ?: ""
+                    serverPort = intent.getIntExtra(EXTRA_SERVER_PORT, 1194)
+                    protocol = intent.getStringExtra("EXTRA_PROTOCOL") ?: "SoftEther"
+                    username = intent.getStringExtra("EXTRA_USERNAME") ?: "vpn"
+                    hubName = intent.getStringExtra("EXTRA_HUB") ?: "VPN"
 
-                    Log.i(TAG, "Connecting to VPN Server: $serverIp:$serverPort")
+                    Log.i(TAG, "Connecting to VPN Server using $protocol protocol: $serverIp:$serverPort")
                     
                     // Stop any existing session
                     stopVpnConnection()
@@ -74,12 +83,34 @@ class MyVpnService : VpnService(), Runnable {
 
     override fun run() {
         try {
+            // Determine TUN session name and virtual subnet based on selected protocol
+            val sessionName = when (protocol) {
+                "OpenVPN" -> "OpenVPN Secure Tunnel"
+                "SSTP" -> "MS-SSTP Secure Tunnel"
+                "L2TP" -> "L2TP/IPsec Secure Tunnel"
+                else -> "SoftEther Secure Tunnel"
+            }
+
+            val internalIp = when (protocol) {
+                "OpenVPN" -> "10.8.0.6"
+                "SSTP" -> "10.10.0.8"
+                "L2TP" -> "10.12.0.2"
+                else -> "10.8.0.5"
+            }
+
+            val routeSubnet = when (protocol) {
+                "OpenVPN" -> "10.8.0.0"
+                "SSTP" -> "10.10.0.0"
+                "L2TP" -> "10.12.0.0"
+                else -> "10.8.0.0"
+            }
+
             // Establish the local Virtual TUN Interface
             // This is the OS-level hook that intercepts all device traffic
             val builder = Builder()
-                .setSession("VpnG Secure Tunnel")
-                .addAddress("10.8.0.2", 32)      // Internal VPN IP
-                .addRoute("0.0.0.0", 0)         // Route all IPv4 traffic through the VPN
+                .setSession(sessionName)
+                .addAddress(internalIp, 32)      // Internal VPN IP
+                .addRoute(routeSubnet, 24)        // Split Tunnel Mode: Route only internal VPN subnet, keeping public internet alive!
                 .addDnsServer("8.8.8.8")        // Secure Google DNS
                 .addDnsServer("1.1.1.1")        // Cloudflare DNS
                 .setMtu(1500)

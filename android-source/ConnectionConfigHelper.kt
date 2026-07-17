@@ -62,9 +62,18 @@ object ConnectionConfigHelper {
     }
 
     /**
-     * Helper to launch the real native VPN service with OpenVPN configuration.
+     * Helper to launch the real native VPN service with any configuration protocol.
      */
-    fun startOpenVpn(context: Context, serverIp: String, port: Int, ovpnConfigBase64: String) {
+    fun startVpnWithProtocol(
+        context: Context, 
+        serverIp: String, 
+        port: Int, 
+        ovpnConfigBase64: String,
+        protocol: String,
+        username: String = "vpn",
+        password: String = "vpn",
+        hubName: String = "VPN"
+    ) {
         try {
             val ovpnConfig = if (ovpnConfigBase64.isNotEmpty()) {
                 String(Base64.decode(ovpnConfigBase64, Base64.DEFAULT))
@@ -77,11 +86,15 @@ object ConnectionConfigHelper {
                 putExtra(MyVpnService.EXTRA_SERVER_IP, serverIp)
                 putExtra(MyVpnService.EXTRA_SERVER_PORT, port)
                 putExtra(MyVpnService.EXTRA_OVPN_CONFIG, ovpnConfig)
+                putExtra("EXTRA_PROTOCOL", protocol)
+                putExtra("EXTRA_USERNAME", username)
+                putExtra("EXTRA_PASSWORD", password)
+                putExtra("EXTRA_HUB", hubName)
             }
             context.startService(intent)
-            Log.d(TAG, "Starting VpnService for server $serverIp:$port")
+            Log.d(TAG, "Starting VpnService with protocol $protocol for server $serverIp:$port")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode OpenVPN config or start service", e)
+            Log.e(TAG, "Failed to initiate native VPN session for $protocol", e)
         }
     }
 

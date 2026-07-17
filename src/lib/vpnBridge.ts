@@ -3,7 +3,15 @@ import { registerPlugin, Capacitor } from '@capacitor/core';
 export interface VpnBridgePlugin {
   checkPermission(): Promise<{ hasPermission: boolean }>;
   requestPermission(): Promise<{ granted: boolean }>;
-  startVpn(options: { serverIp: string; port: number; configBase64: string }): Promise<{ status: string }>;
+  startVpn(options: { 
+    serverIp: string; 
+    port: number; 
+    configBase64: string;
+    protocol?: string;
+    username?: string;
+    password?: string;
+    hubName?: string;
+  }): Promise<{ status: string }>;
   stopVpn(): Promise<{ status: string }>;
 }
 
@@ -36,10 +44,26 @@ export const requestNativeVpnPermission = async (): Promise<boolean> => {
   }
 };
 
-export const startNativeVpn = async (serverIp: string, port: number, configBase64: string): Promise<string> => {
+export const startNativeVpn = async (
+  serverIp: string, 
+  port: number, 
+  configBase64: string,
+  protocol?: string,
+  username?: string,
+  password?: string,
+  hubName?: string
+): Promise<string> => {
   if (!isNativeVpnSupported()) return "simulation";
   try {
-    const { status } = await VpnBridge.startVpn({ serverIp, port, configBase64 });
+    const { status } = await VpnBridge.startVpn({ 
+      serverIp, 
+      port, 
+      configBase64,
+      protocol,
+      username,
+      password,
+      hubName
+    });
     return status;
   } catch (err) {
     console.error("Failed to start native VPN", err);

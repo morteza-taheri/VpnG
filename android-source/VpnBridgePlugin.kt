@@ -49,6 +49,10 @@ class VpnBridgePlugin : Plugin() {
         val serverIp = call.getString("serverIp") ?: ""
         val port = call.getInt("port", 1194)
         val configBase64 = call.getString("configBase64") ?: ""
+        val protocol = call.getString("protocol") ?: "SoftEther"
+        val username = call.getString("username") ?: "vpn"
+        val password = call.getString("password") ?: "vpn"
+        val hubName = call.getString("hubName") ?: "VPN"
 
         val intent = VpnService.prepare(context)
         if (intent != null) {
@@ -59,7 +63,16 @@ class VpnBridgePlugin : Plugin() {
             return
         }
 
-        ConnectionConfigHelper.startOpenVpn(context, serverIp, port, configBase64)
+        ConnectionConfigHelper.startVpnWithProtocol(
+            context, 
+            serverIp, 
+            port, 
+            configBase64, 
+            protocol, 
+            username, 
+            password, 
+            hubName
+        )
         val response = JSObject().apply {
             put("status", "connecting")
         }

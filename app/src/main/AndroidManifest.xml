@@ -26,16 +26,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Unified VpnService — delegates to protocol-specific adapters (see spec section 3.7) -->
-        <service
-            android:name=".vpn.VpnGService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse"
-            android:permission="android.permission.BIND_VPN_SERVICE">
-            <intent-filter>
-                <action android:name="android.net.VpnService" />
-            </intent-filter>
-        </service>
+        <!-- The active VpnService for phase 1 (SoftEther) is SoftEtherVpnService,
+             declared in the :SoftEtherClient module's own AndroidManifest.xml
+             and merged in automatically — no service declaration needed here.
+             See vpn/adapter/SoftEtherProtocolAdapter.kt and README "Protocol
+             roadmap" for how phase 2 (multiple protocols) will be routed. -->
 
     </application>
 </manifest>

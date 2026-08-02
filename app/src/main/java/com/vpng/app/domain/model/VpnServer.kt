@@ -23,14 +23,27 @@ data class VpnServer(
     val supportedProtocols: Set<VpnProtocol>,
     val openVpnConfigBase64: String?,
     /**
-     * Host/port/transport to actually dial for the SoftEther protocol.
-     * From CSV-only sources this is derived (see CsvServerMapper) from the
-     * embedded OpenVPN config's "remote" line, since the official CSV columns
-     * (spec section 4.2) don't expose a dedicated SoftEther port. When the
-     * HTML source (section 4.1.2) is wired up, prefer its explicit SSL-VPN
-     * column instead — it's the more reliable value.
+     * Host/port/transport to actually dial for the SoftEther protocol, or
+     * null if this server doesn't offer SoftEther at all.
+     * From CSV-only data this is a best-effort guess (see CsvServerMapper) —
+     * the official CSV columns (spec section 4.2) don't expose a dedicated
+     * SoftEther port or even whether SoftEther is offered. HtmlServerMapper
+     * overwrites this with the real value (or null) once HTML data (spec
+     * section 4.1.2) is available for this server.
      */
     val softEtherEndpoint: ProtocolEndpoint?,
+    /** True if the HTML page marked SoftEther UDP (RUDP) as supported — no dedicated port is ever published for it. */
+    val softEtherUdpSupported: Boolean = false,
+    /** Explicit OpenVPN ports from the HTML page (spec section 4.1.2) — null until HTML data is available for this server. */
+    val openVpnTcpPort: Int? = null,
+    val openVpnUdpPort: Int? = null,
+    /**
+     * Explicit SSTP hostname[:port] from the HTML page (spec section 4.3).
+     * Null until HTML data is available — CSV alone has no SSTP signal at
+     * all. Not yet dialable (no SSTP adapter implemented, see README), but
+     * captured now since the HTML page gives it to us for free.
+     */
+    val sstpEndpoint: ProtocolEndpoint? = null,
     val source: ServerSource
 )
 

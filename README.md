@@ -48,6 +48,30 @@ solves this by using **already-patched forks** instead of upstream directly:
 When we're ready for phase 2, prefer wiring up those forks (or doing the
 equivalent patch ourselves) over patching upstream from scratch.
 
+## Server data sources (spec section 4)
+
+Implemented: primary CSV API + HTML page (fetched concurrently), Mirror CSV
+as fallback. Not implemented: Mirror Sites HTML (section 4.1.4), Room
+persistence (cache is in-memory only, lost on process death).
+
+**Important limitation on the HTML parser** (`VpnGateHtmlParser.kt`): it was
+written against a *markdown-rendered extraction* of the live vpngate.net/en/
+page, not the raw HTML source — this environment has no way to fetch raw
+HTML from that domain (not in the network allowlist) or view real tag/class
+names. To stay robust without knowing the exact DOM, it parses each table
+row's full text and locates fields using stable literal anchor phrases
+("SSL-VPN Connect guide", "OpenVPN Config file", etc. — link label text,
+not styling) rather than CSS selectors. **This needs verifying against the
+real page** — if `VpnGateHtmlParser.parse()` returns an empty or wrong list,
+share a raw HTML sample and the anchor-phrase logic should only need a small
+local fix, not a rewrite.
+
+The HTML page is the *only* place we learn whether a server actually offers
+SoftEther at all (some servers only have OpenVPN — CSV alone can't tell you
+this; `CsvServerMapper` has to assume SoftEther is available and
+`HtmlServerMapper` corrects that assumption whenever HTML data merges in
+successfully).
+
 ## Status
 
 This is an early scaffold: Gradle setup, manifest, and Clean Architecture

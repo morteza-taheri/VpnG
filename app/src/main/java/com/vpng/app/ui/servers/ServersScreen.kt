@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.vpng.app.domain.model.ProtocolEndpoint
 import com.vpng.app.domain.model.VpnProtocol
 import com.vpng.app.domain.model.VpnServer
 import com.vpng.app.ui.home.HomeViewModel
@@ -165,15 +164,17 @@ private fun ServerListItem(server: VpnServer, onConnectClick: () -> Unit) {
 private fun ProtocolBadges(server: VpnServer) {
     Column(modifier = Modifier.padding(top = 4.dp)) {
         server.softEtherEndpoint?.let { endpoint ->
-            Text(text = "🟢 SoftEther (${endpoint.transport}:${endpoint.port})")
+            val udpPart = if (server.softEtherUdpSupported) " / UDP:Supported" else ""
+            Text(text = "🟢 SoftEther (${endpoint.transport}:${endpoint.port}$udpPart)")
         }
         if (VpnProtocol.OPENVPN in server.supportedProtocols) {
-            // We only reliably know the endpoint SoftEther uses (extracted
-            // from the same OpenVPN config, see CsvServerMapper) — showing
-            // it here too is an approximation until HTML parsing (spec
-            // section 4.1.2) gives an explicit per-protocol port/transport.
-            val approxEndpoint: ProtocolEndpoint? = server.softEtherEndpoint
-            Text(text = "🔵 OpenVPN (${approxEndpoint?.transport ?: "TCP"}:${approxEndpoint?.port ?: "?"})")
+            val tcpPart = server.openVpnTcpPort?.let { "TCP:$it" }
+            val udpPart = server.openVpnUdpPort?.let { "UDP:$it" }
+            val parts = listOfNotNull(tcpPart, udpPart).joinToString(" / ").ifBlank { "unknown port" }
+            Text(text = "🔵 OpenVPN ($parts)")
+        }
+        server.sstpEndpoint?.let { endpoint ->
+            Text(text = "🟠 MS-SSTP (${endpoint.transport}:${endpoint.port})")
         }
     }
 }

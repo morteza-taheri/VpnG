@@ -2,9 +2,8 @@ package com.vpng.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.vpng.app.domain.model.ServerSource
-import com.vpng.app.domain.model.VpnProtocol
 import com.vpng.app.domain.model.VpnServer
+import com.vpng.app.domain.repository.ServerRepository
 import com.vpng.app.vpn.adapter.AdapterResult
 import com.vpng.app.vpn.adapter.SoftEtherProtocolAdapter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,28 +15,41 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val softEtherAdapter: SoftEtherProtocolAdapter
+    private val softEtherAdapter: SoftEtherProtocolAdapter,
+    private val serverRepository: ServerRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ConnectionUiState>(ConnectionUiState.Disconnected)
     val uiState: StateFlow<ConnectionUiState> = _uiState.asStateFlow()
 
-    // TODO: replace with a real server chosen from ServerRepository (API/HTML/mirror
-    // tiered fetch — spec section 4) once that layer is implemented. Hardcoded here
-    // purely to exercise the connect/disconnect wiring end-to-end.
-    private val placeholderServer = VpnServer(
-        hostName = "public-vpn-1.opengw.net",
-        ip = "0.0.0.0",
-        countryCode = "JP",
-        countryName = "Japan",
-        speedMbps = 0.0,
-        ping = 0,
-        score = 0,
-        numVpnSessions = 0,
-        supportedProtocols = setOf(VpnProtocol.SOFTETHER),
-        openVpnConfigBase64 = null,
-        source = ServerSource.CACHE
-    )
+    private val _servers = MutableStateFlow<List<VpnServer>>(emptyList())
+    val servers: StateFlow<List<VpnServer>> = _servers.asStateFlow()
+
+    private var selectedServer: VpnServer? = null
+
+    init {
+        refreshServers()
+    }
+
+    fun refreshServers() {
+        viewModelScope.launch {
+            serverRepository.refreshServers()
+                .onSuccess { list ->
+                    _servers.value = list
+                    // Auto-pick the best-scoring server with a usable SoftEther
+                    // endpoint until a real Servers screen (spec section 8)
+                    // lets the user choose one explicitly.
+                    if (selectedServer == null) {
+                        selectedServer = list
+                            .filter { it.softEtherEndpoint != null }
+                            .maxByOrNull { it.score }
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.value = ConnectionUiState.Error(error.message ?: "Failed to load server list")
+                }
+        }
+    }
 
     /** Returns true if the caller should launch VpnService.prepare()'s intent for consent first. */
     fun needsVpnConsent(): Boolean = !softEtherAdapter.hasVpnPermission()
@@ -50,10 +62,16 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun connect() {
+        val server = selectedServer
+        if (server == null) {
+            _uiState.value = ConnectionUiState.Error("No server available yet — try again in a moment")
+            return
+        }
+
         _uiState.value = ConnectionUiState.Connecting
         viewModelScope.launch {
-            when (val result = softEtherAdapter.connect(placeholderServer)) {
-                is AdapterResult.Connected -> _uiState.value = ConnectionUiState.Connected(placeholderServer)
+            when (val result = softEtherAdapter.connect(server)) {
+                is AdapterResult.Connected -> _uiState.value = ConnectionUiState.Connected(server)
                 is AdapterResult.Failed -> _uiState.value = ConnectionUiState.Error(result.reason)
             }
         }

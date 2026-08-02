@@ -39,9 +39,12 @@ class SoftEtherProtocolAdapter(
             return AdapterResult.Failed("VPN permission not granted — call android.net.VpnService.prepare() from an Activity first")
         }
 
+        val endpoint = server.softEtherEndpoint
+            ?: return AdapterResult.Failed("Server has no SoftEther endpoint info")
+
         val config = ConnectionConfig(
-            serverHost = server.ip,
-            serverPort = 443,
+            serverHost = endpoint.host,
+            serverPort = endpoint.port,
             username = credentials.username,
             password = credentials.password,
             virtualHub = "VPN",

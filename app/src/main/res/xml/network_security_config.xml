@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- The official VPN Gate CSV API (spec section 4.1.1) is served over
+         plain http://, not https://. Scope the cleartext exception to just
+         this domain rather than the whole app. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">vpngate.net</domain>
+    </domain-config>
+</network-security-config>

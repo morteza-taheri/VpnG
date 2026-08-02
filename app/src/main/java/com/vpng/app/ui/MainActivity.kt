@@ -8,7 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.vpng.app.ui.home.HomeScreen
+import com.vpng.app.ui.nav.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -26,9 +26,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier) {
-                    // TODO: NavHost with Home / Servers / Settings destinations
-                    // per specification sections 6-10. Home only for now.
-                    HomeScreen(
+                    AppNavHost(
                         onRequestVpnConsent = {
                             val intent = VpnService.prepare(this)
                             if (intent != null) {

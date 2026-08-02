@@ -16,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,6 +35,7 @@ private val ColorError = Color(0xFFF44336)
 @Composable
 fun HomeScreen(
     onRequestVpnConsent: () -> Unit,
+    onNavigateToServers: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -60,6 +62,10 @@ fun HomeScreen(
         if (uiState is ConnectionUiState.Connected) {
             val server = (uiState as ConnectionUiState.Connected).server
             Text(text = "${server.hostName} · ${server.countryName}")
+        }
+
+        TextButton(onClick = onNavigateToServers) {
+            Text("Browse servers")
         }
     }
 }

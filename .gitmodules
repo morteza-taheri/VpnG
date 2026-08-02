@@ -1,0 +1,9 @@
+[submodule "SoftEtherClient"]
+	path = SoftEtherClient
+	url = https://github.com/hoang-rio/SoftEther-Android-Module
+[submodule "vpnLib"]
+	path = vpnLib
+	url = https://github.com/schwabe/ics-openvpn
+[submodule "sstpClient"]
+	path = sstpClient
+	url = https://github.com/kittoku/Open-SSTP-Client

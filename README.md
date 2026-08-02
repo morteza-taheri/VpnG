@@ -31,6 +31,28 @@ and the `implementation(project(...))` lines in `app/build.gradle.kts`.
 See specification section 17 — ics-openvpn (GPLv2-or-later) is compatible with
 the GPLv3-licensed SoftEther module in a combined binary.
 
+## Known issue: vpnLib / sstpClient are apps, not libraries
+
+Submodules are now checked out. `SoftEtherClient` is a genuine
+`com.android.library` module and is wired up in `app/build.gradle.kts`.
+
+`vpnLib` (ics-openvpn, module at `vpnLib/main`) and `sstpClient`
+(Open-SSTP-Client, module at `sstpClient/app`) both use the
+`com.android.application` plugin — they are standalone apps upstream, not
+libraries. Gradle/AGP does not allow an `application` module to be used as a
+project dependency of another `application` module, so their
+`implementation(project(...))` lines are currently commented out in
+`app/build.gradle.kts`.
+
+To actually integrate them, each needs a local patch:
+1. Change the plugin from `com.android.application` to `com.android.library`.
+2. Remove `applicationId`, the launcher `Activity`, and any manifest entries
+   that only make sense for a standalone app, keeping just the VPN
+   service/tunnel logic that `ProtocolAdapter` implementations need to call.
+
+This is real engineering work per protocol, not a one-line config fix — track
+it before wiring these two into `VpnGService`.
+
 ## Status
 
 This is an early scaffold: Gradle setup, manifest, and Clean Architecture

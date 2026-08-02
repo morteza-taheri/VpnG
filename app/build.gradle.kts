@@ -82,17 +82,9 @@ dependencies {
     // Image loading (per spec section 16 note — not a submodule)
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // Protocol modules — see section 16 and README "Known issue".
-    // SoftEtherClient is a real com.android.library module — safe to depend on directly.
+    // Protocol modules — see section 16 and README "Protocol roadmap".
+    // Only SoftEther is wired up in this phase.
     implementation(project(":SoftEtherClient"))
-
-    // vpnLib (ics-openvpn) and sstpClient (Open-SSTP-Client) are checked out
-    // as com.android.application modules, not libraries. Gradle/AGP does not
-    // allow depending on an application module. They cannot be added here
-    // until each is patched (plugin -> com.android.library, applicationId
-    // and launcher Activity removed). See README "Known issue" section.
-    // implementation(project(":vpnLib"))
-    // implementation(project(":sstpClient"))
 
     // Testing
     testImplementation("junit:junit:4.13.2")

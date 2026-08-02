@@ -22,12 +22,5 @@ include(":app")
 // SoftEtherClient has its build.gradle at its own root, so it includes directly.
 include(":SoftEtherClient")
 
-// vpnLib (ics-openvpn) and sstpClient (Open-SSTP-Client) are checked out as
-// full standalone projects (each has its own settings.gradle). Their actual
-// Android library/app module lives in a subdirectory, so we include them
-// under an alias and repoint projectDir accordingly.
-include(":vpnLib")
-project(":vpnLib").projectDir = file("vpnLib/main")
-
-include(":sstpClient")
-project(":sstpClient").projectDir = file("sstpClient/app")
+// vpnLib (ics-openvpn) and sstpClient (Open-SSTP-Client) are deferred for now —
+// see README "Protocol roadmap" for why and what's needed before adding them.

@@ -166,9 +166,12 @@ def main():
     print(f"Hostnames starting with underscore (edge case):  {underscore_hosts}")
     print()
 
-    print("--- First 5 parsed rows (full detail) ---")
-    for r in parsed[:5]:
-        print(r)
+    # =============== تغییر اعمال‌شده ===============
+    # چاپ همه‌ی سرورها به‌جای ۵ سرور اول
+    print("--- All parsed rows (full detail) ---")
+    for idx, r in enumerate(parsed, start=1):
+        print(f"#{idx}: {r}")
+    # ============================================
 
     print()
     print("--- Any row with NO SoftEther AND NO OpenVPN (fully unusable for phase 1) ---")

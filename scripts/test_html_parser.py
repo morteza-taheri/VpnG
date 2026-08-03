@@ -4,11 +4,12 @@ Test script for VpnGateHtmlParser's logic (Kotlin: app/src/main/java/com/vpng/ap
 This is a Python re-implementation of the EXACT SAME algorithm as the Kotlin
 parser (same anchor phrases, same segment-boundary logic, same regexes) so we
 can quickly verify it against a real saved copy of the vpngate.net/en/ page
-without needing to build the Android app.
+or directly from the live site.
 
 Usage:
-    pip install beautifulsoup4
-    python3 test_html_parser.py "VPN_Gate_-_Public_Free_VPN_Cloud_by_Univ_of_Tsukuba, Japan.html"
+    pip install beautifulsoup4 lxml requests
+    python3 test_html_parser.py                 # uses live site
+    python3 test_html_parser.py "saved.html"    # uses local file
 
 Just paste the full console output back — that's all I need.
 """
@@ -16,6 +17,7 @@ Just paste the full console output back — that's all I need.
 import re
 import sys
 from bs4 import BeautifulSoup
+import requests
 
 MARKER_SSL_VPN = "SSL-VPN Connect guide"
 MARKER_L2TP = "L2TP/IPsec Connect guide"
@@ -84,25 +86,41 @@ def parse_row(row_text):
     }
 
 
+def fetch_html(source):
+    """Return HTML content from either a local file path or a URL."""
+    if source.startswith(("http://", "https://")):
+        print(f"Fetching live page: {source}")
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            resp = requests.get(source, headers=headers, timeout=30)
+            resp.raise_for_status()
+            return resp.text
+        except Exception as e:
+            print(f"ERROR fetching URL: {e}")
+            sys.exit(1)
+    else:
+        print(f"Reading local file: {source}")
+        try:
+            with open(source, "r", encoding="utf-8", errors="replace") as f:
+                return f.read()
+        except Exception as e:
+            print(f"ERROR reading file: {e}")
+            sys.exit(1)
+
+
 def main():
+    # Default to live site if no argument is given
     if len(sys.argv) < 2:
-        print("Usage: python3 test_html_parser.py <path-to-saved-html>")
-        sys.exit(1)
+        source = "https://www.vpngate.net/en/"
+    else:
+        source = sys.argv[1]
 
-    path = sys.argv[1]
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        html = f.read()
-
+    html = fetch_html(source)
     soup = BeautifulSoup(html, "lxml")
 
-    table = soup.find(id="vg_hosts_table_id")
-    used_fallback = False
-
-    # Real page bug found via testing: the id 'vg_hosts_table_id' is reused
-    # on THREE different tables (Recent Activity, Ranking, and the actual
-    # full server list) — find(id=...) grabs whichever comes first, which is
-    # NOT the big list. Instead, collect every candidate table (by id or by
-    # text heuristic) and take the one with the most rows.
+    # Find the server table (same heuristic as before)
     candidates = soup.find_all(id="vg_hosts_table_id") + [
         t for t in soup.find_all("table")
         if "DDNS hostname" in t.get_text() and MARKER_SSL_VPN in t.get_text()
@@ -133,7 +151,7 @@ def main():
     print(f"Successfully parsed server rows: {len(parsed)}")
     print()
 
-    # Summary stats — useful to eyeball correctness at a glance.
+    # Summary stats
     no_softether = sum(1 for r in parsed if r["softEtherTcpPort"] is None and not r["softEtherUdpSupported"])
     softether_udp_only = sum(1 for r in parsed if r["softEtherTcpPort"] is None and r["softEtherUdpSupported"])
     no_openvpn = sum(1 for r in parsed if r["openVpnTcpPort"] is None and r["openVpnUdpPort"] is None)

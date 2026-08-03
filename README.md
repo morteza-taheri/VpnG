@@ -21,7 +21,14 @@ Phase 1 only needs the SoftEther submodule (already added):
 
 ```bash
 git submodule update --init --recursive
+bash scripts/patch-softether-gradle.sh
 ```
+
+The patch script fixes a bug in SoftEtherClient's own `build.gradle` (missing
+Kotlin plugin) that we can't commit a permanent fix for since it's a
+submodule we don't have push access to — **re-run it after every
+`git submodule update`**. Details in the script's own comments and the
+commit that introduced it.
 
 vpnLib and sstpClient are intentionally not added yet — see "Protocol roadmap".
 

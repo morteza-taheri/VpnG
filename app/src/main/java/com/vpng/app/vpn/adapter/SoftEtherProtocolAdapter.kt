@@ -47,7 +47,13 @@ class SoftEtherProtocolAdapter(
             serverPort = endpoint.port,
             username = credentials.username,
             password = credentials.password,
-            virtualHub = "VPN",
+            // VPN Gate's public relay servers all expose their VPN Gate
+            // extension on a Virtual Hub literally named "VPNGATE" (fixed,
+            // documented by the SoftEther project — every public relay uses
+            // this same hub name regardless of server). Do not confuse this
+            // with a generic "VPN" hub name, which does not exist on these
+            // servers and will fail to connect.
+            virtualHub = "VPNGATE",
             sessionName = server.hostName,
             country = server.countryName,
             authMethod = AuthMethod.AUTO

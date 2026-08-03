@@ -19,10 +19,13 @@ import javax.inject.Singleton
 
 /**
  * Implements the tiered fetch strategy from spec section 4.5:
- * 1. Primary CSV API + HTML page fetched concurrently; HTML enriches the
- *    CSV-derived list with accurate per-protocol support/ports (section 4.1.2)
- * 2. Mirror CSV if primary CSV fails (HTML is skipped in this fallback path —
- *    Mirror Sites HTML, section 4.1.4, is not implemented yet, see README)
+ * 1. Primary CSV API + HTML page fetched CONCURRENTLY and merged — both
+ *    sources are always combined together (not a fallback chain between
+ *    them); HTML enriches the CSV-derived list with accurate per-protocol
+ *    support/ports (section 4.1.2)
+ * 2. Mirror CSV (spec section 4.1.3) — DISABLED BY DEFAULT (see
+ *    ServerSourceSettings.mirrorCsvEnabled). Only attempted as a fallback if
+ *    the primary fails AND the user has explicitly enabled it.
  * 3. Existing in-memory cache, if any, as a last resort
  *
  * Persistence (Room) for the cache across process death is not implemented
@@ -30,7 +33,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class VpnGateServerRepository @Inject constructor(
-    private val api: VpnGateApiService
+    private val api: VpnGateApiService,
+    private val sourceSettings: ServerSourceSettings
 ) : ServerRepository {
 
     private val _servers = MutableStateFlow<List<VpnServer>>(emptyList())
@@ -61,6 +65,15 @@ class VpnGateServerRepository @Inject constructor(
             val servers = primaryCsvResult.getOrThrow()
             _servers.value = servers
             return@withContext Result.success(servers)
+        }
+
+        if (!sourceSettings.mirrorCsvEnabled) {
+            // Mirror CSV disabled by default — go straight to cache fallback.
+            val cached = _servers.value
+            if (cached.isNotEmpty()) {
+                return@withContext Result.success(cached)
+            }
+            return@withContext primaryCsvResult
         }
 
         val mirrorResult = fetchAndParseCsv(VpnGateApiService.MIRROR_CSV_URL, ServerSource.MIRROR_CSV)

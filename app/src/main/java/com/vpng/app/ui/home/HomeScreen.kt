@@ -36,6 +36,7 @@ private val ColorError = Color(0xFFF44336)
 fun HomeScreen(
     onRequestVpnConsent: () -> Unit,
     onNavigateToServers: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -66,6 +67,9 @@ fun HomeScreen(
 
         TextButton(onClick = onNavigateToServers) {
             Text("Browse servers")
+        }
+        TextButton(onClick = onNavigateToSettings) {
+            Text("Settings")
         }
     }
 }

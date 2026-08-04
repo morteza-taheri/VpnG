@@ -8,10 +8,12 @@ import androidx.navigation.compose.rememberNavController
 import com.vpng.app.ui.home.HomeScreen
 import com.vpng.app.ui.home.HomeViewModel
 import com.vpng.app.ui.servers.ServersScreen
+import com.vpng.app.ui.settings.SettingsScreen
 
 private object Routes {
     const val HOME = "home"
     const val SERVERS = "servers"
+    const val SETTINGS = "settings"
 }
 
 @Composable
@@ -29,6 +31,7 @@ fun AppNavHost(onRequestVpnConsent: () -> Unit) {
             HomeScreen(
                 onRequestVpnConsent = onRequestVpnConsent,
                 onNavigateToServers = { navController.navigate(Routes.SERVERS) },
+                onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 viewModel = homeViewModel
             )
         }
@@ -41,6 +44,9 @@ fun AppNavHost(onRequestVpnConsent: () -> Unit) {
                 },
                 onNeedsVpnConsent = onRequestVpnConsent
             )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen()
         }
     }
 }

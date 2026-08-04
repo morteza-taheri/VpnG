@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
 }
@@ -38,9 +39,10 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // Compose compiler version is now managed automatically by the
+    // org.jetbrains.kotlin.plugin.compose plugin (matches the Kotlin
+    // version) — the old composeOptions{kotlinCompilerExtensionVersion}
+    // block is obsolete as of Kotlin 2.0+ and has been removed.
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -55,10 +57,13 @@ android {
 dependencies {
     // Core / Compose
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // Matches SoftEtherClient's own kotlinx-coroutines-android version —
+    // keeping these in sync avoids the same Kotlin-metadata-version
+    // mismatch across modules.
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation("androidx.activity:activity-compose:1.9.0")
-    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")

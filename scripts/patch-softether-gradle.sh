@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Patches known bugs/version conflicts in SoftEtherClient's own build.gradle.
-# This is an upstream (external) file we don't have push access to (it's a
-# git submodule), so this patch has to be reapplied after every
+# Patches known bugs in SoftEtherClient's own build.gradle. This is an
+# upstream (external) file we don't have push access to (it's a git
+# submodule), so this patch has to be reapplied after every
 # `git submodule update`.
 #
 # Usage (from repo root, after `git submodule update --init --recursive`):
@@ -9,6 +9,12 @@
 #
 # Each fix below is applied independently and is idempotent — safe to run
 # multiple times, and safe to run after only some fixes were already applied.
+#
+# NOTE: as of the project moving to AGP 8.9.1 / compileSdk 36 (see root
+# build.gradle.kts), SoftEtherClient's own androidx.core:core-ktx:1.18.0
+# request is no longer a problem (that version needs compileSdk 36, which we
+# now have) — an earlier version of this script force-downgraded it to
+# 1.13.1; that fix was removed since it's no longer needed.
 
 set -euo pipefail
 
@@ -25,11 +31,11 @@ CHANGED=0
 # The module has .kt sources but only applies 'com.android.library', so
 # Kotlin files wouldn't compile at all.
 if grep -q "org.jetbrains.kotlin.android" "$FILE"; then
-    echo "[1/3] Kotlin plugin: already present"
+    echo "[1/2] Kotlin plugin: already present"
 else
     sed -i.bak "s/id 'com.android.library'/id 'com.android.library'\n    id 'org.jetbrains.kotlin.android'/" "$FILE"
     rm -f "$FILE.bak"
-    echo "[1/3] Kotlin plugin: added"
+    echo "[1/2] Kotlin plugin: added"
     CHANGED=1
 fi
 
@@ -49,26 +55,19 @@ text = re.sub(
 )
 open(path, "w", encoding="utf-8").write(text)
 PYEOF
-    echo "[2/3] kotlin{compilerOptions{}} block: replaced with kotlinOptions{}"
+    echo "[2/2] kotlin{compilerOptions{}} block: replaced with kotlinOptions{}"
     CHANGED=1
 else
-    echo "[2/3] kotlin{compilerOptions{}} block: not present (already patched or never had it)"
+    echo "[2/2] kotlin{compilerOptions{}} block: not present (already patched or never had it)"
 fi
 
-# --- Fix 3: androidx.core:core-ktx pinned too new for our compileSdk ---
-# The module requests 1.18.0 directly, which needs compileSdk 36 + AGP
-# 8.9.1+ (we're on compileSdk 34 / AGP 8.5.0) — causes a hard AAR-metadata
-# build failure ("requires libraries...to compile against version 36").
-# The module only uses androidx.core.app.NotificationCompat, unchanged
-# since core-ktx 1.0, so downgrading is safe — matches the version :app
-# itself uses (see app/build.gradle.kts).
-if grep -q "androidx.core:core-ktx:1.18.0" "$FILE"; then
-    sed -i.bak "s/androidx.core:core-ktx:1.18.0/androidx.core:core-ktx:1.13.1/" "$FILE"
+# --- Revert-if-present: undo the old core-ktx 1.13.1 force-downgrade ---
+# from an earlier version of this script, now unnecessary (see NOTE above).
+if grep -q "androidx.core:core-ktx:1.13.1" "$FILE"; then
+    sed -i.bak "s/androidx.core:core-ktx:1.13.1/androidx.core:core-ktx:1.18.0/" "$FILE"
     rm -f "$FILE.bak"
-    echo "[3/3] core-ktx version: downgraded 1.18.0 -> 1.13.1"
+    echo "[revert] core-ktx: restored to the module's original 1.18.0 (compileSdk 36 supports it now)"
     CHANGED=1
-else
-    echo "[3/3] core-ktx version: already OK"
 fi
 
 if [ "$CHANGED" -eq 0 ]; then

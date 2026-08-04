@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.vpng.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.vpng.app"

@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.callbackFlow
 import vn.unlimit.softether.SoftEtherVpnService
 import vn.unlimit.softether.model.AuthMethod
 import vn.unlimit.softether.model.ConnectionConfig
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Adapts VpnG's [ProtocolAdapter] contract onto SoftEtherClient's own,
@@ -28,7 +30,7 @@ import vn.unlimit.softether.model.ConnectionConfig
  */
 class SoftEtherProtocolAdapter(
     private val context: Context,
-    private val credentials: SoftEtherCredentials
+    private val credentialsSettings: SoftEtherCredentialsSettings
 ) : ProtocolAdapter {
 
     fun hasVpnPermission(): Boolean =
@@ -45,8 +47,8 @@ class SoftEtherProtocolAdapter(
         val config = ConnectionConfig(
             serverHost = endpoint.host,
             serverPort = endpoint.port,
-            username = credentials.username,
-            password = credentials.password,
+            username = credentialsSettings.username,
+            password = credentialsSettings.password,
             // VPN Gate's public relay servers all expose their VPN Gate
             // extension on a Virtual Hub literally named "VPNGATE" (fixed,
             // documented by the SoftEther project — every public relay uses
@@ -56,7 +58,7 @@ class SoftEtherProtocolAdapter(
             virtualHub = "VPNGATE",
             sessionName = server.hostName,
             country = server.countryName,
-            authMethod = AuthMethod.AUTO
+            authMethod = credentialsSettings.authMethod
         )
 
         val result = CompletableDeferred<AdapterResult>()
@@ -109,10 +111,34 @@ class SoftEtherProtocolAdapter(
 }
 
 /**
- * VPN Gate's public servers use fixed anonymous-style credentials
- * (see specification section on SoftEther authentication methods).
+ * SoftEther connection credentials/auth method — user-editable in Settings.
+ * Not persisted yet (no DataStore wiring — see README TODO); resets on
+ * process death. Defaults match VPN Gate's public free-relay convention
+ * (spec section on SoftEther authentication methods):
+ *
+ *   Free VPNGate server (default): username="vpn", password="vpn", AUTO
+ *   Paid/private server w/ RADIUS: real username/password, PLAIN_PASSWORD
+ *   Anonymous-only hub:            empty username/password, ANONYMOUS
+ *
+ * AUTO covers the common free-server case by itself (it picks PASSWORD when
+ * a password is present, ANONYMOUS otherwise) — the explicit PLAIN_PASSWORD/
+ * ANONYMOUS options exist for people connecting to a private/paid server
+ * outside the public VPN Gate directory.
  */
-data class SoftEtherCredentials(
-    val username: String = "vpn",
-    val password: String = "vpn"
-)
+@Singleton
+class SoftEtherCredentialsSettings @Inject constructor() {
+    @Volatile
+    var username: String = "vpn"
+
+    @Volatile
+    var password: String = "vpn"
+
+    @Volatile
+    var authMethod: AuthMethod = AuthMethod.AUTO
+
+    fun resetToVpnGateDefaults() {
+        username = "vpn"
+        password = "vpn"
+        authMethod = AuthMethod.AUTO
+    }
+}

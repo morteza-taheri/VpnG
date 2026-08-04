@@ -1,7 +1,7 @@
 package com.vpng.app.di
 
 import android.content.Context
-import com.vpng.app.vpn.adapter.SoftEtherCredentials
+import com.vpng.app.vpn.adapter.SoftEtherCredentialsSettings
 import com.vpng.app.vpn.adapter.SoftEtherProtocolAdapter
 import dagger.Module
 import dagger.Provides
@@ -17,7 +17,8 @@ object VpnModule {
     @Provides
     @Singleton
     fun provideSoftEtherProtocolAdapter(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        credentialsSettings: SoftEtherCredentialsSettings
     ): SoftEtherProtocolAdapter =
-        SoftEtherProtocolAdapter(context, SoftEtherCredentials())
+        SoftEtherProtocolAdapter(context, credentialsSettings)
 }

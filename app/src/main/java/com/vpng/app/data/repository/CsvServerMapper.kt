@@ -41,11 +41,13 @@ object CsvServerMapper {
             operator = row.operator,
             message = row.message,
             // CSV alone can't tell us whether a server actually offers
-            // SoftEther — some servers only offer OpenVPN, which the HTML
-            // page (spec section 4.1.2) reveals but CSV doesn't. This is a
-            // CSV-only DEFAULT ASSUMPTION and gets corrected by
-            // HtmlServerMapper.merge() whenever HTML data is available for
-            // this server; it may be wrong when HTML fetch fails/is skipped.
+            // SoftEther — some servers only offer OpenVPN, which only the
+            // HTML page (spec section 4.1.2) reveals. This CSV-only path is
+            // now used purely as a fallback when the HTML page can't be
+            // fetched at all (see VpnGateServerRepository) — there's no HTML
+            // data available in that case to correct this assumption with,
+            // so it may simply be wrong for servers that don't really
+            // support SoftEther.
             supportedProtocols = buildSet {
                 add(VpnProtocol.SOFTETHER)
                 if (decodedConfig != null) add(VpnProtocol.OPENVPN)

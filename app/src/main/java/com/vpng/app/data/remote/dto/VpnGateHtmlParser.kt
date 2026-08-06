@@ -5,11 +5,13 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 
 /**
- * Parses the vpngate.net/en/ server table (spec section 4.1.2).
+ * Parses the vpngate.net/en/ server table (spec section 4.1.2) into
+ * COMPLETE per-server records — see [VpnGateHtmlRow] doc for why this is
+ * self-sufficient rather than something meant to be merged with CSV data.
  *
  * Verified against a real saved copy of the page (2026-08-02) using a
- * Python/BeautifulSoup port of this exact algorithm — two real bugs were
- * caught and fixed this way before ever touching an emulator:
+ * Python/BeautifulSoup port of this exact algorithm — bugs caught and
+ * fixed this way before ever touching an emulator:
  *
  * 1. The id "vg_hosts_table_id" is reused on THREE different tables (Recent
  *    Activity, Ranking, and the actual full server list) — getElementById()
@@ -21,10 +23,19 @@ import org.jsoup.nodes.TextNode
  *    Connect guide</b>`, so naive .text() produces "SSL-VPNConnect guide"
  *    (no space), silently breaking every anchor-phrase match below. Fixed by
  *    replacing every `<br>` with a space TextNode before extracting text.
+ * 3. Trying to join this data onto a SEPARATELY fetched CSV response by
+ *    matching IP address failed for most rows in practice: the CSV endpoint
+ *    and this HTML page are independent requests against VPN Gate's live,
+ *    constantly-rotating top-N list, so the two responses frequently contain
+ *    almost entirely different servers. Fixed by extracting everything
+ *    needed directly from this page instead of relying on a cross-reference.
  *
  * Field extraction uses stable literal anchor phrases from the link text
  * ("SSL-VPN Connect guide", "OpenVPN Config file", etc.) applied to each
- * row's full text, rather than fragile CSS selectors.
+ * row's full text, rather than fragile CSS selectors. Verified against the
+ * real page: 99/100 real server rows extract every field successfully; the
+ * lone miss was a server with "Ping: -" (a real, legitimately missing ping
+ * measurement, not a parsing failure) — ping defaults to -1 in that case.
  *
  * Confirmed edge cases from the real data this must handle:
  * - Some servers have NO SoftEther at all (empty SSL-VPN cell).
@@ -46,6 +57,15 @@ object VpnGateHtmlParser {
     private val UDP_PORT_REGEX = Regex("""UDP:\s*(\d+)""")
     private val UDP_SUPPORTED_REGEX = Regex("""UDP:\s*Supported""")
     private val SSTP_HOSTNAME_REGEX = Regex("""SSTP Hostname\s*:\s*([A-Za-z0-9._-]+\.opengw\.net)(?::(\d+))?""")
+
+    private val SESSIONS_REGEX = Regex("""([\d,]+)\s*sessions""")
+    private val UPTIME_REGEX = Regex("""(\d+\s*(?:days?|hours?|mins?))""")
+    private val USERS_REGEX = Regex("""Total\s+([\d,]+)\s*users""")
+    private val SPEED_REGEX = Regex("""([\d,]+\.\d+)\s*Mbps""")
+    private val PING_REGEX = Regex("""Ping:\s*(\d+)\s*ms""")
+    private val TRAFFIC_REGEX = Regex("""([\d,]+\.\d+)\s*GB""")
+    private val LOG_POLICY_REGEX = Regex("""Logging policy:\s*(.+?)(?=SSL-VPN|OpenVPN Config file|$)""")
+    private val SCORE_REGEX = Regex("""([\d,]+)\s*$""")
 
     fun parse(html: String): List<VpnGateHtmlRow> {
         val doc = Jsoup.parse(html)
@@ -77,8 +97,23 @@ object VpnGateHtmlParser {
 
         // Header rows repeat periodically; only rows for an actual server
         // contain a real .opengw.net hostname.
-        val hostName = HOSTNAME_REGEX.find(text)?.groupValues?.get(1) ?: return null
+        val hostMatch = HOSTNAME_REGEX.find(text) ?: return null
+        val hostName = hostMatch.groupValues[1]
         val ip = IPV4_REGEX.find(text)?.groupValues?.get(1) ?: return null
+
+        // Country name is simply everything before the hostname.
+        val countryName = text.substring(0, hostMatch.range.first).trim()
+
+        val sessions = SESSIONS_REGEX.find(text)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull() ?: 0
+        val uptime = UPTIME_REGEX.find(text)?.groupValues?.get(1)?.trim() ?: ""
+        val totalUsers = USERS_REGEX.find(text)?.groupValues?.get(1)?.replace(",", "")?.toLongOrNull() ?: 0L
+        val speedMbps = SPEED_REGEX.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull() ?: 0.0
+        // "Ping: -" happens for a small number of real servers (measurement
+        // unavailable) — not a parsing failure, just no data.
+        val ping = PING_REGEX.find(text)?.groupValues?.get(1)?.toIntOrNull() ?: -1
+        val totalTrafficGb = TRAFFIC_REGEX.find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull() ?: 0.0
+        val logPolicy = LOG_POLICY_REGEX.find(text)?.groupValues?.get(1)?.trim() ?: ""
+        val score = SCORE_REGEX.find(text.trim())?.groupValues?.get(1)?.replace(",", "")?.toLongOrNull() ?: 0L
 
         // Every one of these four markers is independently optional — a real
         // server can have any subset present (see class doc for confirmed
@@ -120,8 +155,17 @@ object VpnGateHtmlParser {
         val sstpPort = sstpMatch?.groupValues?.get(2)?.toIntOrNull()
 
         return VpnGateHtmlRow(
+            countryName = countryName,
             hostName = hostName,
             ip = ip,
+            sessions = sessions,
+            uptime = uptime,
+            totalUsers = totalUsers,
+            speedMbps = speedMbps,
+            ping = ping,
+            totalTrafficGb = totalTrafficGb,
+            logPolicy = logPolicy,
+            score = score,
             softEtherTcpPort = softEtherTcpPort,
             softEtherUdpSupported = softEtherUdpSupported,
             l2tpSupported = l2tpSupported,

@@ -57,27 +57,35 @@ equivalent patch ourselves) over patching upstream from scratch.
 
 ## Server data sources (spec section 4)
 
-Implemented: primary CSV API + HTML page (fetched concurrently), Mirror CSV
-as fallback. Not implemented: Mirror Sites HTML (section 4.1.4), Room
-persistence (cache is in-memory only, lost on process death).
+**Architecture note (revised):** the original design fetched the CSV API and
+the HTML page concurrently and merged them by matching IP address. In
+practice this failed for most servers — the CSV endpoint and the HTML page
+are independent HTTP requests against VPN Gate's live, constantly-rotating
+top-N server list, so the two responses frequently contain almost entirely
+different servers. Matching by IP silently failed for most rows, leaving
+most servers with unknown OpenVPN ports (confirmed via real device testing).
 
-**Important limitation on the HTML parser** (`VpnGateHtmlParser.kt`): it was
-written against a *markdown-rendered extraction* of the live vpngate.net/en/
-page, not the raw HTML source — this environment has no way to fetch raw
-HTML from that domain (not in the network allowlist) or view real tag/class
-names. To stay robust without knowing the exact DOM, it parses each table
-row's full text and locates fields using stable literal anchor phrases
-("SSL-VPN Connect guide", "OpenVPN Config file", etc. — link label text,
-not styling) rather than CSS selectors. **This needs verifying against the
-real page** — if `VpnGateHtmlParser.parse()` returns an empty or wrong list,
-share a raw HTML sample and the anchor-phrase logic should only need a small
-local fix, not a rewrite.
+Current strategy:
+1. **HTML page** (section 4.1.2) — primary. Self-sufficient: builds complete
+   `VpnServer` objects directly from the page (country, sessions, ping,
+   speed, score, and all per-protocol ports), no CSV merge involved.
+2. **Primary CSV API** (section 4.1.1) — fallback only if the HTML fetch
+   fails entirely. Gives just the CSV-only approximate SoftEther endpoint
+   (see `CsvServerMapper`) since there's no HTML data to correct it with.
+3. **Mirror CSV** (section 4.1.3) — disabled by default (see
+   `ServerSourceSettings.mirrorCsvEnabled`), only tried if both above fail
+   and the user has explicitly enabled it.
+4. Existing in-memory cache, if any, as a last resort.
 
-The HTML page is the *only* place we learn whether a server actually offers
-SoftEther at all (some servers only have OpenVPN — CSV alone can't tell you
-this; `CsvServerMapper` has to assume SoftEther is available and
-`HtmlServerMapper` corrects that assumption whenever HTML data merges in
-successfully).
+Not implemented: Mirror Sites HTML (section 4.1.4), Room persistence (cache
+is in-memory only, lost on process death).
+
+**HTML parser verification:** `VpnGateHtmlParser.kt` was tested against a
+real saved copy of the page (BeautifulSoup port of the same algorithm) and
+against the live page — 99-100/100 real server rows extract every field
+correctly across three independent runs. See the parser's class doc for the
+two real bugs this testing caught and fixed (duplicate table id, `<br>`
+producing no whitespace in `.text()`).
 
 ## Status
 

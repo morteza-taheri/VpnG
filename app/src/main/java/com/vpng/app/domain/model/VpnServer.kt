@@ -25,11 +25,12 @@ data class VpnServer(
     /**
      * Host/port/transport to actually dial for the SoftEther protocol, or
      * null if this server doesn't offer SoftEther at all.
-     * From CSV-only data this is a best-effort guess (see CsvServerMapper) —
-     * the official CSV columns (spec section 4.2) don't expose a dedicated
-     * SoftEther port or even whether SoftEther is offered. HtmlServerMapper
-     * overwrites this with the real value (or null) once HTML data (spec
-     * section 4.1.2) is available for this server.
+     * When [source] is [ServerSource.HTML] this is the real, confirmed
+     * value (see HtmlServerMapper). When [source] is [ServerSource.API] or
+     * [ServerSource.MIRROR_CSV] (the HTML-fetch-failed fallback path) it's
+     * only a best-effort guess (see CsvServerMapper) — the official CSV
+     * columns (spec section 4.2) don't expose a dedicated SoftEther port or
+     * even whether SoftEther is offered at all.
      */
     val softEtherEndpoint: ProtocolEndpoint?,
     /** True if the HTML page marked SoftEther UDP (RUDP) as supported — no dedicated port is ever published for it. */
